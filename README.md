@@ -7,3 +7,4 @@ Dependencies: bagpipes, numpy, matplotlib, astropy (visualizer still works even 
 
 For requests regarding not wanting to install the powerful but multinest-dependent bagpipes, I can include the model-generation part of bagpipes and the underlying SSP grids as a part of this package. To be done in the future.<br>
 
+![alt text](readme_image.png?raw=true)
