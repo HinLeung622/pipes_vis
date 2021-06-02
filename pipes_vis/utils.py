@@ -6,7 +6,8 @@ try:
     import bagpipes as pipes
 except ImportError:
     print('BAGPIPES not installed')
-    #from . import pipes_source as pipes
+from . import override_config
+override_config.override_config(pipes)
 
 
 class sfh_translate:
@@ -130,7 +131,7 @@ def running_median(x,y, width=150):
     """ Calculates a rolling/running median for spectrum """
     # width = width of wavelength considered in each median taken
     x_gaps = np.diff(x)
-    # get indices of transitions where the spacing between concetive x entries change
+    # get indices of transitions where the spacing between concecutive x entries change
     gap_diffs = np.diff(x_gaps)
     gap_change_ind = np.where(gap_diffs>0.01)[0]+2
     gap_change_ind = np.insert(gap_change_ind, len(gap_change_ind), len(y))

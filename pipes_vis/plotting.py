@@ -3,8 +3,9 @@ import numpy as np
 try:
     import bagpipes as pipes
 except ImportError:
-    print('BAGPIPES not installed, using native bagpipes model functions')
-    #from . import pipes_source as pipes
+    print('BAGPIPES not installed')
+from . import override_config
+override_config.override_config(pipes)
 
 from . import utils
 

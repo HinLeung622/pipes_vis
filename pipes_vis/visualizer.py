@@ -2,12 +2,14 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
+import copy
 
 try:
     import bagpipes as pipes
 except ImportError:
     print('BAGPIPES not installed')
-    #from . import pipes_source as pipes
+from . import override_config
+override_config.override_config(pipes)
 
 from . import utils
 from . import plotting
@@ -438,3 +440,123 @@ class visualizer:
             self.sliders[key].reset()
         self.spec_min_box.set_val(self.init_comp['spec_lim'][0])
         self.spec_max_box.set_val(self.init_comp['spec_lim'][1])
+        
+    def ribbon_plot(self, parameter, range=None, log_space=False, nlines=10, lw=1, alpha=1.0, 
+                     show=True, figsize=(13,10), cmap='viridis', reverse=False):
+        """
+        Creates a 2-panel spectrum and residual plot where the varying spectra of a 
+        galaxy with the defined initial components under the change of one specified
+        parameter. Spectra are in lines that match with the specified colourmap, 
+        shown as a colorbar on the side.
+        When range is not specified, it defaults to the slider ranges in slider_params.
+        Putting log_space=True spaces the parameter values for the spectra in log,
+        instead of the default linear spacing.
+        Putting reverse=True inverts the zorder and colour scheme of the lines, 
+        included for cases where it is easier to spot variations by plotting the 
+        spectra of higher parameter values at lower zorder.
+        Returns figure and axes (in a list) for further manipulation by the user if needed.
+        """
+        # create a dummy model
+        init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
+        model = pipes.model_galaxy(
+            utils.make_pipes_components(self.init_comp, init_input_logM, init_custom_sfh),
+            spec_wavs=self.wavelengths)
+        
+        # calculate the ticks at chich to vary the chosen parameter
+        if range is None:
+            range = slider_params.slider_lib[parameter]['lims']
+        if log_space:
+            param_ticks = 10**np.linspace(np.log10(range[0]),np.log10(range[1]),nlines)
+        else:
+            param_ticks = np.linspace(range[0],range[1],nlines)
+        if reverse:
+            param_ticks = param_ticks[::-1]
+        
+        # loop through parameter ticks and update model to get spectrum and residuals to plot
+        spectrums = []
+        ymaxs = []
+        residuals = []
+        for i,ticki in enumerate(param_ticks):
+            new_init_comp = copy.deepcopy(self.init_comp)
+            if ':' in parameter:
+                new_init_comp[parameter.split(':')[0]][parameter.split(':')[1]] = ticki
+            else:
+                new_init_comp[parameter] = ticki
+    
+            init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(new_init_comp)
+    
+            model.update(utils.make_pipes_components(new_init_comp, init_input_logM, init_custom_sfh))
+            zoom_in_spec = model.spectrum[np.where((model.spectrum[:,0] >= self.spec_lim[0]) & 
+                                                   (model.spectrum[:,0] <= self.spec_lim[1]))]
+            spectrums.append(zoom_in_spec.copy())
+    
+            #figure out the optimal y scale to use, first calculate all ymaxes
+            ymaxs.append(1.05*np.max(spectrums[-1][:, 1]))
+    
+            #calculate residuals (full range)
+            run_med = utils.running_median(model.spectrum[:,0], model.spectrum[:,1], width=self.median_width)
+            residual = model.spectrum[:,1] / run_med
+            zoom_in_res = residual[np.where((model.spectrum[:,0] >= self.spec_lim[0]) & 
+                                            (model.spectrum[:,0] <= self.spec_lim[1]))]
+            residuals.append(zoom_in_res.copy())
+        
+        # extract colours from the chosen colourmap
+        if reverse:
+            colormap = matplotlib.cm.get_cmap(cmap+'_r')
+        else:
+            colormap = matplotlib.cm.get_cmap(cmap)
+        colors = matplotlib.cm.get_cmap(cmap)((param_ticks-param_ticks[0])/(param_ticks[-1]-param_ticks[0]))
+        
+        # now create the figure
+        fig = plt.figure(figsize=figsize)
+    
+        gs1 = matplotlib.gridspec.GridSpec(7, 1, hspace=0., wspace=0.)
+        ax1 = plt.subplot(gs1[:5])       #main spectrum plot
+        ax2 = plt.subplot(gs1[5:])       #residual plot
+    
+        ymax = max(ymaxs)
+        y_scale = int(np.log10(ymax))-1
+        res_lims = []
+        for i,spectrum in enumerate(spectrums):
+            ax1.plot(spectrum[:, 0], spectrum[:, 1]*10**-y_scale,
+                    color=colors[i], zorder=4, lw=lw, alpha=alpha)
+            ax2.plot(spectrum[:, 0], residuals[i], color=colors[i], lw=lw, zorder=1, alpha=alpha)
+            res_span = max(residuals[i]) - min(residuals[i])
+            res_lims.append([min(residuals[i])-0.1*res_span, max(residuals[i])+0.1*res_span])
+    
+        # Sort out spectrum limits and axis labels
+        ax1.set_ylim(0., ymax*10**-y_scale)
+        ax1.set_xlim(self.spec_lim)
+        ax1.set_xticks([])
+        pipes.plotting.auto_axis_label(ax1, y_scale, z_non_zero=True)
+    
+        # add residual value guidelines and labels
+        ax2.axhline(1, color="black", ls="--", lw=1, zorder=0)
+        ax2.axhline(1.5, color="black", ls=":", lw=1, zorder=0)
+        ax2.annotate('1.5x', [0.98*(self.spec_lim[1]-self.spec_lim[0])+self.spec_lim[0], 1.5], 
+                     ha='center', va='center')
+        ax2.axhline(0.5, color="black", ls=":", lw=1, zorder=0)
+        ax2.annotate('0.5x', [0.98*(self.spec_lim[1]-self.spec_lim[0])+self.spec_lim[0], 0.5], 
+                     ha='center', va='center')
+    
+        # Sort out residual limits and axis labels
+        ax2.set_xlim(self.spec_lim)
+        pipes.plotting.auto_x_ticks(ax2)
+        pipes.plotting.auto_axis_label(ax2, -1, z_non_zero=True)
+        ax2.set_ylabel('flux/\ncontinuum')
+        # rescale the y axis to be determined only by the residuals in frame
+        res_lims = np.array(res_lims)
+        ax2.set_ylim([min(res_lims[:,0]), max(res_lims[:,1])])
+    
+        plt.subplots_adjust(right=0.95)
+        cax = plt.axes([0.96, 0.14, 0.02, 0.72])
+        cbar = plt.colorbar(plt.cm.ScalarMappable(cmap=colormap,
+                                                  norm=matplotlib.colors.Normalize(vmin=range[0], 
+                                                                                   vmax=range[1])), 
+                            cax=cax)
+        cbar.set_label(slider_params.slider_lib[parameter]['label'], rotation=270)
+    
+        if show:
+            plt.show()
+            
+        return fig, [ax1, ax2]
