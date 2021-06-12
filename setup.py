@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="pipes-vis",
-    version="0.3.1",
+    version="0.4.0",
     author="Ho-Hin Leung",
     author_email="hhl1@st-andrews.ac.uk",
     description="Small interactive GUI/visualizer tool for SPS spectra",
