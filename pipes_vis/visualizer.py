@@ -4,10 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
 import copy
 
-try:
-    import bagpipes as pipes
-except ImportError:
-    print('BAGPIPES not installed')
+import bagpipes as pipes
 from . import override_config
 override_config.override_config(pipes)
 
@@ -70,7 +67,7 @@ class visualizer:
             = plotting.add_sfh_plot(self.init_comp, init_sfh, init_input_logM, self.ax1,
                                     sfh_color=self.plot_colors['sfh'], z_line_color=self.plot_colors['z'])
 
-        self.model = pipes.model_galaxy(utils.make_pipes_components(self.init_comp, init_input_logM, init_custom_sfh),
+        self.model = pipes.model_galaxy(utils.make_pipes_components(self.init_comp, init_custom_sfh),
                                         spec_wavs=self.wavelengths)
 
         # full spectrum in inset
@@ -374,7 +371,7 @@ class visualizer:
         self.input_logM_text.set_text('pre-obs log10M = '+str(np.round(input_logM,2)))
 
         #update model components
-        self.model.update(utils.make_pipes_components(self.new_comp, input_logM, custom_sfh))
+        self.model.update(utils.make_pipes_components(self.new_comp, custom_sfh))
         
         run_med = utils.running_median(self.model.spectrum[:,0], self.model.spectrum[:,1], 
                                        width=self.median_width)
@@ -459,10 +456,10 @@ class visualizer:
         # create a dummy model
         init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
         model = pipes.model_galaxy(
-            utils.make_pipes_components(self.init_comp, init_input_logM, init_custom_sfh),
+            utils.make_pipes_components(self.init_comp, init_custom_sfh),
             spec_wavs=self.wavelengths)
         
-        # calculate the ticks at chich to vary the chosen parameter
+        # calculate the ticks at which to vary the chosen parameter
         if range is None:
             range = slider_params.slider_lib[parameter]['lims']
         if log_space:
@@ -485,7 +482,7 @@ class visualizer:
     
             init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(new_init_comp)
     
-            model.update(utils.make_pipes_components(new_init_comp, init_input_logM, init_custom_sfh))
+            model.update(utils.make_pipes_components(new_init_comp, init_custom_sfh))
             zoom_in_spec = model.spectrum[np.where((model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                    (model.spectrum[:,0] <= self.spec_lim[1]))]
             spectrums.append(zoom_in_spec.copy())
@@ -548,8 +545,8 @@ class visualizer:
         res_lims = np.array(res_lims)
         ax2.set_ylim([min(res_lims[:,0]), max(res_lims[:,1])])
     
-        plt.subplots_adjust(right=0.95)
-        cax = plt.axes([0.96, 0.14, 0.02, 0.72])
+        plt.subplots_adjust(right=0.90)
+        cax = plt.axes([0.91, 0.14, 0.02, 0.72])
         cbar = plt.colorbar(plt.cm.ScalarMappable(cmap=colormap,
                                                   norm=matplotlib.colors.Normalize(vmin=range[0], 
                                                                                    vmax=range[1])), 

@@ -2,10 +2,7 @@ import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from scipy.ndimage import median_filter
 
-try:
-    import bagpipes as pipes
-except ImportError:
-    print('BAGPIPES not installed')
+import bagpipes as pipes
 from . import override_config
 override_config.override_config(pipes)
 
@@ -59,73 +56,82 @@ class sfh_translate:
 
 def create_sfh(params):
     """
-    Using the visualizer input dictionary to create a custom SFH array fixed at 
-    z=0 with Bagpipes, then translate that array to the given z, and return 3
-    things: 1. total log10M before given z, 2. SFH array used to plot SFH and 
-    3. custom SFH that is to be poured into bagpipes' custom sfh module
+    Using the visualizer input dictionary to create custom SFH arrays for each
+    SFH component fixed at z=0 with Bagpipes, then translate that array to the 
+    given z, and return 3 things: 1. total log10M before given z, 2. SFH array 
+    used to plot SFH and 3. a dictionary of custom SFH dictionaries that is to 
+    be poured into bagpipes' model components
     """
     z = params["redshift"]
+    total_M_before_z = 0
+    total_sfh = None
+    pipes_sfh_dict = {}
     # create a temporary bagpipes input dictionary that only has the SFH-related elements, z forced to be 0
-    model_components = {}
+    pipes_sfh_funcs = dir(pipes.models.star_formation_history)
+    custom_count = 0
     for key in params.keys():
-        if key in dir(pipes.models.star_formation_history):
-            sfh_comp = getattr(sfh_translate, key)(params[key])
-            sfh_comp['massformed'] = params[key]['massformed']
-            sfh_comp['metallicity'] = params['metallicity']
-            model_components[key] = sfh_comp
-        elif key[:-1] in dir(pipes.models.star_formation_history):
-            sfh_comp = getattr(sfh_translate, key[:-1])(params[key])
-            sfh_comp['massformed'] = params[key]['massformed']
-            sfh_comp['metallicity'] = params['metallicity']
-            model_components[key] = sfh_comp
-    model_components['redshift'] = 0
+        if key in pipes_sfh_funcs or key[:-1] in pipes_sfh_funcs:
+            custom_count += 1
+            # bagpipes is only able to deal with 9 sfh components of the same type, so error is raised when
+            # more than 9 sfh components are set (they all have to use the custom component to pass to bagpipes)
+            if custom_count > 9:
+                raise NameError("Too many initiated SFH components, exceeds bagpipes' limits(9).")
+            model_components = {}
+            if key in pipes_sfh_funcs:
+                sfh_comp = getattr(sfh_translate, key)(params[key])
+                sfh_comp['massformed'] = params[key]['massformed']
+                sfh_comp['metallicity'] = params[key]['metallicity']
+                model_components[key] = sfh_comp
+            elif key[:-1] in pipes_sfh_funcs:
+                sfh_comp = getattr(sfh_translate, key[:-1])(params[key])
+                sfh_comp['massformed'] = params[key]['massformed']
+                sfh_comp['metallicity'] = params[key]['metallicity']
+                model_components[key] = sfh_comp
+            model_components['redshift'] = 0
     
-    # pass the temp input dictionary to the SFH module in bagpipes to build an SFH
-    pipes_sfh = pipes.models.star_formation_history(model_components)
-    lb_time = pipes_sfh.ages
-    sfh = pipes_sfh.sfh
+            # pass the temp input dictionary to the SFH module in bagpipes to build an SFH
+            pipes_sfh = pipes.models.star_formation_history(model_components)
+            lb_time = pipes_sfh.ages
+            sfh = pipes_sfh.sfh
+            
+            # insert an interpolated datapoint in bagpipes generated SFH array at redshift z, 
+            # to prevent jittering of model spectrum due to such interpolate issues
+            lb_time_of_z = (cosmo.age(0).value - cosmo.age(z).value)*10**9
+            sfr_at_z = np.interp(lb_time_of_z, lb_time, sfh)
+            
+            # calculate the mass formed up to the given redshift z
+            age = cosmo.age(0).value*10**9 - lb_time[::-1]
+            sfh = sfh[::-1]
+            age_before_z = age[age<cosmo.age(z).value*10**9]
+            sfh_before_z = sfh[age<cosmo.age(z).value*10**9]
+            M_before_z = np.trapz(y=sfh_before_z, x=age_before_z)
+            
+            #create custom sfh array that is before z for input to model components
+            #requirements: column 0 = lookback time at z in years, column 1 = SFR in Msuns per year
+            lb_time_before_z = cosmo.age(z).value*10**9 - age_before_z[::-1]
+            lb_sfh_before_z = sfh_before_z[::-1]
+            lb_time_before_z = np.insert(lb_time_before_z, 0, 0)        # the insert
+            lb_sfh_before_z = np.insert(lb_sfh_before_z, 0, sfr_at_z)   # the insert
+            custom_sfh = np.array([lb_time_before_z, lb_sfh_before_z]).T
+            
+            # now add this sfh component's sfh to the total
+            if total_sfh is not None:
+                total_sfh += sfh
+            else:
+                total_sfh = sfh
+            # build up the total mass formed from the different SFH components
+            total_M_before_z += M_before_z
+            # put everything into a dictionary that will feed directly into bagpipes
+            custom = {}
+            custom['massformed'] = np.log10(M_before_z)
+            custom['metallicity'] = params[key]['metallicity']
+            # set the sfh array to non zero throughout to prevent bagpipes going crazy
+            if M_before_z == 0:
+                custom_sfh[:,1] = np.ones(len(custom_sfh))
+            custom['history'] = custom_sfh
+            pipes_sfh_dict['custom'+str(custom_count)] = custom
     
-    # insert an interpolated datapoint in bagpipes generated SFH array at redshift z, 
-    # to prevent jittering of model spectrum due to such interpolate issues
-    lb_time_of_z = (cosmo.age(0).value - cosmo.age(z).value)*10**9
-    sfr_at_z = np.interp(lb_time_of_z, lb_time, sfh)
-    
-    #calculate the mass formed up to the given redshift z
-    age = cosmo.age(0).value*10**9 - lb_time[::-1]
-    sfh = sfh[::-1]
-    age_before_z = age[age<cosmo.age(z).value*10**9]
-    sfh_before_z = sfh[age<cosmo.age(z).value*10**9]
-    logM_before_z = np.log10(np.trapz(y=sfh_before_z, x=age_before_z))
-    
-    #create custom sfh array that is before z for input to model components
-    #requirements: column 0 = lookback time at z in years, column 1 = SFR in Msuns per year
-    lb_time_before_z = cosmo.age(z).value*10**9 - age_before_z[::-1]
-    lb_sfh_before_z = sfh_before_z[::-1]
-    lb_time_before_z = np.insert(lb_time_before_z, 0, 0)        # the insert
-    lb_sfh_before_z = np.insert(lb_sfh_before_z, 0, sfr_at_z)   # the insert
-    custom_sfh = np.array([lb_time_before_z, lb_sfh_before_z]).T
-    
-    return logM_before_z, np.array([age/10**9, sfh]), custom_sfh
-
-'''
-def running_median(x,y, width=150, indexing=None):
-    """
-    Calculates a rolling/running median for spectrum.
-    The search for wavelengths within the width will not be performed if pre-
-    calculated indexing is provided.
-    """
-    # width = width of wavelength considered in each median taken
-    medians = np.zeros(len(y))
-    if indexing is not None:
-        for i,yi in enumerate(y):
-            y_sec = y[indexing[i]]
-            medians[i] = np.median(y_sec)
-    else:
-        for i,yi in enumerate(y):
-            y_sec = y[np.where((x >= x[i]-width/2) & (x <= x[i]+width/2))]
-            medians[i] = np.median(y_sec)
-    return medians
-'''
+    return np.log10(total_M_before_z), np.array([age/10**9, total_sfh]), pipes_sfh_dict
 
 def running_median(x,y, width=150):
     """ Calculates a rolling/running median for spectrum """
@@ -195,16 +201,10 @@ def running_median(x,y, width=150):
             
     return medians
     
-def make_pipes_components(params, input_logM, sfh):
-    """ Create a Bagpipes component dictionary (custom SFH) from visualizer inputs """
-    custom = {}
-    custom["massformed"] = input_logM
-    custom["metallicity"] = params["metallicity"]
-    custom["history"] = sfh
-
-    model_components = {}
+def make_pipes_components(params, sfh_dict):
+    """ Create a Bagpipes component dictionary (custom SFHs) from visualizer inputs """
+    model_components = sfh_dict.copy()
     model_components["redshift"] = params["redshift"]
-    model_components["custom"] = custom
     if "dust" in params.keys():
         model_components["dust"] = params["dust"]
     if "nebular" in params.keys():

@@ -1,9 +1,6 @@
 import numpy as np
 
-try:
-    import bagpipes as pipes
-except ImportError:
-    print('BAGPIPES not installed')
+import bagpipes as pipes
 from . import override_config
 override_config.override_config(pipes)
 
