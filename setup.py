@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="pipes-vis",
-    version="0.4.0",
+    version="0.4.1",
     author="Ho-Hin Leung",
     author_email="hhl1@st-andrews.ac.uk",
     description="Small interactive GUI/visualizer tool for SPS spectra",
@@ -24,6 +24,6 @@ setuptools.setup(
     packages=setuptools.find_packages(where="src"),
     python_requires=">=3.6",
     
-    install_requires=["bagpipes>=0.8.5", "numpy>=1.14.2",
+    install_requires=["bagpipes>=0.8.6", "numpy>=1.14.2",
                       "astropy", "matplotlib>=2.2.2", "scipy"],
 )
