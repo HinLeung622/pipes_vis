@@ -9,7 +9,7 @@ sfh_priorities = {
     'delayed':30,
     'lognormal':40,
     'dblplaw':50,
-    'psb2':60
+    'psb_wild2020':60
 }
 
 massformed_unit = r'$\log_{10}M_*/M_\odot$'
@@ -166,50 +166,50 @@ slider_lib = {
         'side':'left',
         'priority':5
     },
-    # =================== psb2 ====================
-    'psb2:massformed':{
+    # =================== psb_wild2020 ====================
+    'psb_wild2020:massformed':{
         'label':massformed_unit,
         'lims':[8.5,12],
         'side':'left',
         'priority':1
     },
-    'psb2:metallicity':{
+    'psb_wild2020:metallicity':{
         'label':metallicity_unit,
         'lims':[0.0,2.0],
         'side':'left',
         'priority':2
     },
-    'psb2:told':{
+    'psb_wild2020:told':{
         'label':r'$t_{old}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value-2],
         'side':'left',
         'priority':3
     },
-    'psb2:tau':{
+    'psb_wild2020:tau':{
         'label':r'$\tau$ (Gyr)',
         'lims':[0.1,10],
         'side':'left',
         'priority':4
     },
-    'psb2:tburst':{
+    'psb_wild2020:tburst':{
         'label':r'$t_{burst}$ (Gyr)',
         'lims':[utils.cosmo.age(0).value-5,utils.cosmo.age(0).value-0.3],
         'side':'left',
         'priority':5
     },
-    'psb2:alpha':{
+    'psb_wild2020:alpha':{
         'label':r'$\alpha$',
         'lims':[0.01,500],
         'side':'left',
         'priority':6
     },
-    'psb2:beta':{
+    'psb_wild2020:beta':{
         'label':r'$\beta$',
         'lims':[0.01,500],
         'side':'left',
         'priority':7
     },
-    'psb2:fburst':{
+    'psb_wild2020:fburst':{
         'label':r'$f_{burst}$',
         'lims':[0.0,1.0],
         'side':'left',

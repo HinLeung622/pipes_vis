@@ -44,7 +44,7 @@ class sfh_translate:
         pipes_comp["beta"] = vis_comp['beta']
         return pipes_comp
     
-    def psb2(vis_comp):
+    def psb_wild2020(vis_comp):
         pipes_comp = {}
         pipes_comp["age"] = cosmo.age(0).value - vis_comp['told']
         pipes_comp["tau"] = vis_comp['tau']
