@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
+from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 import copy
 
 import bagpipes as pipes
@@ -18,9 +19,10 @@ class visualizer:
     Object that holds and does the under-the-hood work for showing the galaxy SFH/parameters
     -> spectrum GUI visualizer.
     """
-    def __init__(self, init_components):
+    def __init__(self, init_components, index_list=None):
         self.init_comp = init_components
         self.spec_lim = self.init_comp['spec_lim'].copy()
+        self.index_list = index_list
         # full spectrum wavelengths
         wavelengths_fine = np.linspace(1000,10000, 10000)
         wavelengths_coarse = np.linspace(10000,50000,2000)[1:]
@@ -41,7 +43,7 @@ class visualizer:
         self.max_n_rows = 9
         self.textbox_gap = 0.03
         # other adjustment values for other elements of the plot
-        self.sub_ax_arg = [.69, .25, .2, .11]          # location and scaling of full spectrum subplot
+        self.sub_ax_arg = [0.7,0.05,0.28,0.4]          # location and scaling of full spectrum subplot
         self.bottom_adjust_val = 0.36                  # scaling value used on all plots to make space
         self.top_adjust_val = 0.95                     # scaling value used on all plots to make space
                                                        # for the sliders
@@ -56,10 +58,21 @@ class visualizer:
         """
         self.fig = plt.figure(figsize=figsize)
 
-        gs1 = matplotlib.gridspec.GridSpec(13, 1, hspace=0., wspace=0.)
+        if self.index_list is None:
+            gs1 = matplotlib.gridspec.GridSpec(13, 1, hspace=0., wspace=0.)
+        else:
+            index_ncols = -(-len(self.index_list)//5)
+            gs0 = self.fig.add_gridspec(1, 3+index_ncols)
+            gs1 = gs0[:3].subgridspec(13, 1, hspace=0., wspace=0.)
+            gs2 = gs0[3:].subgridspec(5, index_ncols, hspace=0.5, wspace=0.1)
+            # indices plots
+            for i in range(len(self.index_list)):
+                self.index_list[i]['ax'] = plt.subplot(gs2[i%5,i//5])
+            
         self.ax1 = plt.subplot(gs1[0:5])        #SFH plot
         self.ax2 = plt.subplot(gs1[6:11])       #main spectrum plot
         self.ax3 = plt.subplot(gs1[11:])        #residual plot
+                
 
         init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
 
@@ -71,7 +84,10 @@ class visualizer:
                                         spec_wavs=self.wavelengths)
 
         # full spectrum in inset
-        self.sub_ax = plt.axes(self.sub_ax_arg)
+        self.sub_ax = plt.axes([0,0,1,1])
+        # Manually set the position and relative size of the inset axes within ax2
+        ip = InsetPosition(self.ax2, self.sub_ax_arg)
+        self.sub_ax.set_axes_locator(ip)
         sub_y_scale_spec,self.sub_spec_line = plotting.add_bp_spectrum(self.model.spectrum, self.sub_ax, sub=True,
                                                                        color=self.plot_colors['spectrum'])
         self.spec_zoom_poly = self.sub_ax.fill_between(self.spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
@@ -86,6 +102,20 @@ class visualizer:
         # the residual plot
         self.res_line = plotting.add_residual(self.model, self.ax3, self.spec_lim, median_width=self.median_width, 
                                               color=self.spec_line.get_color())
+        
+        # indices plots
+        if self.index_list is not None:
+            self.index_names = [ind["name"] for ind in self.index_list]
+
+            # calculate and plot indices
+            self.indices = np.zeros(len(self.index_list))
+            for i in range(self.indices.shape[0]):
+                self.indices[i] = pipes.input.spectral_indices.measure_index(
+                    self.index_list[i], self.model.spectrum, self.init_comp["redshift"])
+                
+                self.index_list[i]['line'], self.index_list[i]['text'] \
+                    = plotting.add_index_spectrum(self.index_list[i], self.model.spectrum, 
+                                                  self.indices[i], y_scale_spec)
         
         if show:
             plt.show()
@@ -183,12 +213,14 @@ class visualizer:
                 sfh_dict = self.init_comp[key]
                 for sfh_key in sfh_dict.keys():
                     if sfh_key[-5:] != '_lims':
-                        if key in sfh_types:
+                        if key in sfh_types and key+':'+sfh_key in slider_params.slider_lib.keys():
                             required_components.append(key+':'+sfh_key)
-                        elif key[:-1] in sfh_types:
+                            slider_names.append(key+':'+sfh_key)
+                            init_vals.append(sfh_dict[sfh_key])
+                        elif key[:-1] in sfh_types and key[:-1]+':'+sfh_key in slider_params.slider_lib.keys():
                             required_components.append(key[:-1]+':'+sfh_key)
-                        slider_names.append(key+':'+sfh_key)
-                        init_vals.append(sfh_dict[sfh_key])
+                            slider_names.append(key+':'+sfh_key)
+                            init_vals.append(sfh_dict[sfh_key])
                         try:
                             custom_extremes.append(sfh_dict[sfh_key+'_lims'])
                         except KeyError:
@@ -206,7 +238,7 @@ class visualizer:
                             except KeyError:
                                 custom_extremes.append(None)
                                 
-            elif key != 'spec_lim' and key[-5:] != '_lims':
+            elif key != 'spec_lim' and key[-5:] != '_lims' and key in slider_params.slider_lib.keys():
                 required_components.append(key)
                 slider_names.append(key)
                 init_vals.append(self.init_comp[key])
@@ -327,7 +359,10 @@ class visualizer:
                 sfh_dict = {}
                 for sfh_key in self.init_comp[key].keys():
                     if sfh_key[-5:] != '_lims':
-                        sfh_dict[sfh_key] = self.sliders[key+':'+sfh_key].val
+                        if key+':'+sfh_key in self.sliders.keys():
+                            sfh_dict[sfh_key] = self.sliders[key+':'+sfh_key].val
+                        else:
+                            sfh_dict[sfh_key] = self.init_comp[key][sfh_key]
                 sfh_dict_list.append(sfh_dict)
         
         other_modules = {}

@@ -123,3 +123,31 @@ def add_residual(model, ax, spec_lim, median_width=150, color="sandybrown"):
     ax.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
     
     return res_line
+
+def add_index_spectrum(ind_dict, spectrum, ind_val, y_scale):
+    """ 
+    Adds the elements in line index plots to a given axis, 
+    returns plot elements that can later be updated by sliders and y scale of spectrum
+    """
+    index_ax = ind_dict['ax']
+    if ind_dict['type'] in ['EW', 'break']:
+        continuum_flat = [j for sub in ind_dict['continuum'] for j in sub]
+        index_range = [min(continuum_flat), max(continuum_flat)]
+        spec_range = np.where((spectrum[:,0] > index_range[0]) & (spectrum[:,0] < index_range[1]))
+        ind_line = index_ax.plot(spectrum[spec_range][:,0], spectrum[spec_range][:,1]*10**-y_scale, color='k')
+
+        ylims = index_ax.get_ylim()
+        for con in ind_dict['continuum']:
+            index_ax.fill_between(con, [ylims[0]]*2, [ylims[1]]*2, color='lightgray', alpha=0.2)
+        if ind_dict['type'] == 'EW':
+            index_ax.fill_between(ind_dict['feature'], [ylims[0]]*2, [ylims[1]]*2, color='sandybrown', alpha=0.2)
+        index_ax.set_ylim(ylims)
+        index_ax.set_xlim(index_range)
+        index_ax.tick_params(direction="in")
+    else:
+        ind_line = [None]
+        index_ax.set_xticks([])
+    
+    ind_text = index_ax.text(0.95, 1.0, ind_dict['name']+'='+str(np.round(ind_val,2)), ha='right', va='bottom', transform=index_ax.transAxes)
+    
+    return ind_line[0], ind_text
