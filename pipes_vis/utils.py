@@ -1,6 +1,7 @@
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from scipy.ndimage import median_filter
+import copy
 
 import bagpipes as pipes
 from . import override_config
@@ -53,6 +54,49 @@ class sfh_translate:
         pipes_comp["beta"] = vis_comp['beta']
         pipes_comp["fburst"] = vis_comp['fburst']
         return pipes_comp
+    
+    def psb_twin(vis_comp):
+        pipes_comp = {}
+        pipes_comp["age"] = cosmo.age(0).value - vis_comp['told']
+        pipes_comp["alpha1"] = vis_comp['alpha1']
+        pipes_comp["beta1"] = vis_comp['beta1']
+        pipes_comp["burstage"] = cosmo.age(0).value - vis_comp['tburst']
+        pipes_comp["alpha2"] = vis_comp['alpha2']
+        pipes_comp["beta2"] = vis_comp['beta2']
+        pipes_comp["fburst"] = vis_comp['fburst']
+        return pipes_comp
+    
+class metallicity_translate:
+    def delta(vis_comp, z):
+        pipes_comp = {}
+        pipes_comp["metallicity_type"] = 'delta'
+        pipes_comp["metallicity"] = vis_comp['metallicity']
+        return pipes_comp
+    
+    def psb_two_step(vis_comp, z):
+        pipes_comp = {key:vis_comp[key] for key in ["metallicity_old", "metallicity_burst"]}
+        pipes_comp["metallicity_type"] = "two_step"
+        pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['tburst']
+        return pipes_comp
+    
+    def two_step(vis_comp, z):
+        pipes_comp = {key:vis_comp[key] for key in ["metallicity_type", "metallicity_old", "metallicity_burst"]}
+        pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['metallicity_tstep']
+        return pipes_comp
+    
+    def psb_linear_step(vis_comp, z):
+        return {key:vis_comp[key] for key in ["metallicity_type", "metallicity_slope", 
+                                              "metallicity_zero", "metallicity_burst"]}
+
+def make_sfh_comp(sfh_type, key, params):
+    sfh_comp = getattr(sfh_translate, sfh_type)(params[key])
+    sfh_comp['massformed'] = params[key]['massformed']
+    if "metallicity_type" in params[key].keys():
+        metallicity_comp = getattr(metallicity_translate, params[key]["metallicity_type"])(params[key], 0)
+    else:
+        metallicity_comp = getattr(metallicity_translate, 'delta')(params[key], 0)
+    sfh_comp.update(metallicity_comp)
+    return sfh_comp
 
 def create_sfh(params):
     """
@@ -62,6 +106,12 @@ def create_sfh(params):
     used to plot SFH and 3. a dictionary of custom SFH dictionaries that is to 
     be poured into bagpipes' model components
     """
+    print('')
+    pipes_sfh_funcs = dir(pipes.models.star_formation_history)
+    for key in params.keys():
+        if key in pipes_sfh_funcs or key[:-1] in pipes_sfh_funcs:
+            print(params[key])
+    
     z = params["redshift"]
     total_M_before_z = 0
     total_sfh = None
@@ -78,15 +128,9 @@ def create_sfh(params):
                 raise NameError("Too many initiated SFH components, exceeds bagpipes' limits(9).")
             model_components = {}
             if key in pipes_sfh_funcs:
-                sfh_comp = getattr(sfh_translate, key)(params[key])
-                sfh_comp['massformed'] = params[key]['massformed']
-                sfh_comp['metallicity'] = params[key]['metallicity']
-                model_components[key] = sfh_comp
+                model_components[key] = make_sfh_comp(key, key, params)
             elif key[:-1] in pipes_sfh_funcs:
-                sfh_comp = getattr(sfh_translate, key[:-1])(params[key])
-                sfh_comp['massformed'] = params[key]['massformed']
-                sfh_comp['metallicity'] = params[key]['metallicity']
-                model_components[key] = sfh_comp
+                model_components[key] = make_sfh_comp(key[:-1], key, params)
             model_components['redshift'] = 0
     
             # pass the temp input dictionary to the SFH module in bagpipes to build an SFH
@@ -124,7 +168,15 @@ def create_sfh(params):
             # put everything into a dictionary that will feed directly into bagpipes
             custom = {}
             custom['massformed'] = np.log10(M_before_z)
-            custom['metallicity'] = params[key]['metallicity']
+            # check metallicity and translate
+            if "metallicity_type" in params[key].keys():
+                metallicity_comp = getattr(metallicity_translate, params[key]["metallicity_type"])(params[key], z)
+            else:
+                metallicity_comp = getattr(metallicity_translate, 'delta')(params[key], z)
+            custom.update(metallicity_comp)
+            
+            print(custom)
+            
             # set the sfh array to non zero throughout to prevent bagpipes going crazy
             if M_before_z == 0:
                 custom_sfh[:,1] = np.ones(len(custom_sfh))
@@ -203,6 +255,8 @@ def running_median(x,y, width=150):
     
 def make_pipes_components(params, sfh_dict):
     """ Create a Bagpipes component dictionary (custom SFHs) from visualizer inputs """
+    print(params)
+    print(sfh_dict)
     model_components = sfh_dict.copy()
     model_components["redshift"] = params["redshift"]
     if "dust" in params.keys():
@@ -215,5 +269,18 @@ def make_pipes_components(params, sfh_dict):
         if params["veldisp"]>0:
             model_components["veldisp"] = params["veldisp"]
     return model_components
+
+def shift_index(ind_dict, redshift):
+    out_dict = {}
+    for key in ind_dict:
+        if key == 'feature':
+            out_dict['feature'] = np.array(ind_dict['feature'])*(1+redshift)
+        elif key == 'continuum':
+            out_dict['continuum'] = []
+            for i in range(len(ind_dict['continuum'])):
+                out_dict['continuum'].append(np.array(ind_dict['continuum'][i])*(1+redshift))
+        else:
+            out_dict[key] = ind_dict[key]
+    return out_dict
 
 cosmo = FlatLambdaCDM(H0=70., Om0=0.3)

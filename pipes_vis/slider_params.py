@@ -9,26 +9,68 @@ sfh_priorities = {
     'delayed':30,
     'lognormal':40,
     'dblplaw':50,
-    'psb_wild2020':60
+    'psb_wild2020':60,
+    'psb_twin':70
 }
 
-massformed_unit = r'$\log_{10}M_*/M_\odot$'
+# commonly used among all SFHs
+massformed_dict = {
+    'label':r'$\log_{10}M_*/M_\odot$',
+    'lims':[8.5,12],
+    'side':'left',
+    'priority':1
+    }
+
+# library for all possible metallicity parameters, added to each possible SFH component
 metallicity_unit = r'$Z_*/Z_\odot$'
-slider_lib = {
-    # various sfh parameters
-    # =================== burst ===================
-    'burst:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'burst:metallicity':{
+metallicity_lib = {
+    # constant metallicity
+    'metallicity':{
         'label':metallicity_unit,
         'lims':[0.0,2.0],
         'side':'left',
-        'priority':2
-    },
+        'priority':2.0
+        },
+    # psb_two_step and two_step
+    'metallicity_old':{
+        'label':metallicity_unit,
+        'lims':[0.0,2.0],
+        'side':'left',
+        'priority':2.1
+        },
+    # psb_two_step, two_step and psb_linear_step
+    'metallicity_burst':{
+        'label':metallicity_unit,
+        'lims':[0.0,2.0],
+        'side':'left',
+        'priority':2.2
+        },
+    # psb_linear_step
+    'metallicity_slope':{
+        'label':r'$Z_*/Z_\odot \; Gyr^{-1}$',
+        'lims':[-1.0,1.0],
+        'side':'left',
+        'priority':2.3
+        },
+    # psb_linear_step
+    'metallicity_zero':{
+        'label':metallicity_unit,
+        'lims':[0.0,5.0],
+        'side':'left',
+        'priority':2.4
+        },
+    # two_step
+    'metallicity_tstep':{
+        'label':r'$t_{Zstep}$ (Gyr)',
+        'lims':[0.0,utils.cosmo.age(0).value],
+        'side':'left',
+        'priority':2.5
+        }
+    }
+
+slider_lib = {
+    # various sfh parameters
+    # =================== burst ===================
     'burst:tform':{
         'label':r'$t_{burst}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value],
@@ -36,18 +78,6 @@ slider_lib = {
         'priority':3
     },
     # =================== constant ==================
-    'constant:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'constant:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'constant:tform':{
         'label':r'$t_{form}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value],
@@ -61,18 +91,6 @@ slider_lib = {
         'priority':4
     },
     # =================== exponential ====================
-    'exponential:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'exponential:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'exponential:tform':{
         'label':r'$t_{form}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value-1],
@@ -86,18 +104,6 @@ slider_lib = {
         'priority':4
     },
     # =================== delayed ====================
-    'delayed:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'delayed:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'delayed:tform':{
         'label':r'$t_{form}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value-1],
@@ -111,18 +117,6 @@ slider_lib = {
         'priority':4
     },
     # =================== lognormal ====================
-    'lognormal:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'lognormal:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'lognormal:tmax':{
         'label':r'$t_{max}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value],
@@ -136,18 +130,6 @@ slider_lib = {
         'priority':4
     },
     # =================== dblplaw ====================
-    'dblplaw:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'dblplaw:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'dblplaw:tau':{
         'label':r'$\tau\;/\;t_{max}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value],
@@ -167,18 +149,6 @@ slider_lib = {
         'priority':5
     },
     # =================== psb_wild2020 ====================
-    'psb_wild2020:massformed':{
-        'label':massformed_unit,
-        'lims':[8.5,12],
-        'side':'left',
-        'priority':1
-    },
-    'psb_wild2020:metallicity':{
-        'label':metallicity_unit,
-        'lims':[0.0,2.0],
-        'side':'left',
-        'priority':2
-    },
     'psb_wild2020:told':{
         'label':r'$t_{old}$ (Gyr)',
         'lims':[0,utils.cosmo.age(0).value-2],
@@ -214,6 +184,49 @@ slider_lib = {
         'lims':[0.0,1.0],
         'side':'left',
         'priority':8
+    },
+    # =================== psb_twin ===================
+    'psb_twin:told':{
+        'label':r'$t_{old}$ (Gyr)',
+        'lims':[0,utils.cosmo.age(0).value-2],
+        'side':'left',
+        'priority':3
+    },
+    'psb_twin:alpha1':{
+        'label':r'$\alpha_1$',
+        'lims':[0.01,5],
+        'side':'left',
+        'priority':4
+    },
+    'psb_twin:beta1':{
+        'label':r'$\beta_1$',
+        'lims':[0.01,500],
+        'side':'left',
+        'priority':5
+    },
+    'psb_twin:tburst':{
+        'label':r'$t_{burst}$ (Gyr)',
+        'lims':[utils.cosmo.age(0).value-5,utils.cosmo.age(0).value-0.3],
+        'side':'left',
+        'priority':6
+    },
+    'psb_twin:alpha2':{
+        'label':r'$\alpha_2$',
+        'lims':[0.01,500],
+        'side':'left',
+        'priority':7
+    },
+    'psb_twin:beta2':{
+        'label':r'$\beta_2$',
+        'lims':[0.01,500],
+        'side':'left',
+        'priority':8
+    },
+    'psb_twin:fburst':{
+        'label':r'$f_{burst}$',
+        'lims':[0.0,1.0],
+        'side':'left',
+        'priority':9
     },
     # =================== now right hand sides ===================
     'redshift':{
@@ -289,6 +302,11 @@ slider_lib = {
         'priority':12
     }
 }
+
+for sfh_key in sfh_priorities.keys():
+    slider_lib[sfh_key+':massformed'] = massformed_dict.copy()
+    for metallicity_key in metallicity_lib:
+        slider_lib[sfh_key+':'+metallicity_key] = metallicity_lib[metallicity_key].copy()
 
 for key in slider_lib.keys():
     if ':' in key:

@@ -29,7 +29,8 @@ class visualizer:
         self.wavelengths = np.concatenate([wavelengths_fine, wavelengths_coarse])
         # colours used for the various plot lines
         self.plot_colors = {'sfh':"black", 'z':"red", 'spectrum':"sandybrown", 
-                            'continuum':"black", 'zoom':"black"}
+                            'continuum':"black", 'zoom':"black", 
+                            "index_continuum":"lightgray", "index_feature":"sandybrown"}
         # width of spectrum (in AA) considered when calculating running median
         self.median_width = 150
         # adjustment values that determine sizes and arrangement of sliders
@@ -113,9 +114,11 @@ class visualizer:
                 self.indices[i] = pipes.input.spectral_indices.measure_index(
                     self.index_list[i], self.model.spectrum, self.init_comp["redshift"])
                 
-                self.index_list[i]['line'], self.index_list[i]['text'] \
-                    = plotting.add_index_spectrum(self.index_list[i], self.model.spectrum, 
-                                                  self.indices[i], y_scale_spec)
+                self.index_list[i] = plotting.add_index_spectrum(
+                    self.index_list[i], self.model.spectrum, self.indices[i], self.init_comp["redshift"], 
+                    y_scale_spec, color_continuum=self.plot_colors['index_continuum'],
+                    color_feature=self.plot_colors['index_feature'], alpha=0.2
+                    )
         
         if show:
             plt.show()
@@ -327,31 +330,9 @@ class visualizer:
                                     self.max_y - right_row_no[-1]*self.step_y]
             
         return sliders_ax, sliders, current_right_column_pos
-    
-    def update_spec(self, spectrum, ax, spec_line, sub=False, overflow_text=None, change_xlims=False):
-        """ updates a given spectrum line plot from a given ax with a given new spectrum """
-        if overflow_text is not None:
-            overflow_text.set_alpha(0.0)
-        spec_ymax = 1.05*np.max(spectrum[:, 1])
-        try:
-            spec_y_scale = int(np.log10(spec_ymax))-1
-            spec_line.set_ydata(spectrum[:, 1]*10**-spec_y_scale)
-            if change_xlims == True:
-                spec_line.set_xdata(spectrum[:, 0])
-                ax.set_ylim(0., spec_ymax*10**-spec_y_scale)
-                ax.set_xlim(spectrum[0, 0], spectrum[-1, 0])
-                pipes.plotting.auto_x_ticks(ax)
-            ax.set_ylim(0., spec_ymax*10**-spec_y_scale)
-            if sub == False:
-                pipes.plotting.auto_axis_label(ax, spec_y_scale, z_non_zero=True)
-            return spec_y_scale
-        except OverflowError:
-            if overflow_text is not None:
-                overflow_text.set_alpha(1.0)
 
-    def update(self, val):
-        """ The function to be called anytime a slider's value changes """
-        #create updated components dictionary
+    def update_component_dict(self):
+        """ create updated components dictionary """
         sfh_dict_list = []
         sfh_types = dir(pipes.models.star_formation_history)
         for key in self.init_comp.keys():
@@ -389,6 +370,11 @@ class visualizer:
             elif key != 'spec_lim' and key[-5:] != '_lims':
                 self.new_comp[key] = self.sliders[key].val
 
+    def update(self, val):
+        """ The function to be called anytime a slider's value changes """
+        # get new_comp going
+        self.update_component_dict()
+
         #update sfh plot
         age_at_z = utils.cosmo.age(self.new_comp["redshift"]).value
         self.z_line.set_xdata([age_at_z,age_at_z])
@@ -413,12 +399,12 @@ class visualizer:
         residual = self.model.spectrum[:,1] / run_med
 
         #update subplot full spectrum
-        self.update_spec(self.model.spectrum, self.sub_ax, self.sub_spec_line, sub=True)
+        plotting.update_spec(self.model.spectrum, self.sub_ax, self.sub_spec_line, sub=True)
 
         #update main spectrum plot
         zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                     (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        y_scale_spec = self.update_spec(zoom_in_spec, self.ax2, self.spec_line, overflow_text=self.overflow_text)
+        y_scale_spec = plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, overflow_text=self.overflow_text)
         if y_scale_spec is not None:
             self.run_med_line.set_ydata(run_med*10**-y_scale_spec)
 
@@ -428,6 +414,15 @@ class visualizer:
                                              (self.model.spectrum[:,0] <= self.spec_lim[1]))]
             res_span = max(in_range_res) - min(in_range_res)
             self.ax3.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
+            
+            #update indices
+            if self.index_list is not None:
+                for i in range(len(self.index_list)):
+                    self.indices[i] = pipes.input.spectral_indices.measure_index(
+                        self.index_list[i], self.model.spectrum, self.new_comp["redshift"])
+                    plotting.update_index(self.index_list[i], self.model.spectrum, self.indices[i], 
+                                          self.new_comp["redshift"], y_scale_spec)
+                        
 
         self.fig.canvas.draw_idle()
         
