@@ -22,7 +22,7 @@ class visualizer:
     """
     def __init__(self, init_components, index_list=None):
         self.init_comp = init_components
-        self.spec_lim = self.init_comp['spec_lim'].copy()
+        self.init_spec_lim = self.init_comp['spec_lim'].copy()
         self.index_list = index_list
         # full spectrum wavelengths
         wavelengths_fine = np.linspace(1000,10000, 10000)
@@ -92,17 +92,17 @@ class visualizer:
         self.sub_ax.set_axes_locator(ip)
         sub_y_scale_spec,self.sub_spec_line = plotting.add_bp_spectrum(self.model.spectrum, self.sub_ax, sub=True,
                                                                        color=self.plot_colors['spectrum'])
-        self.spec_zoom_poly = self.sub_ax.fill_between(self.spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
+        self.spec_zoom_poly = self.sub_ax.fill_between(self.init_spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
                                                        alpha=0.1)
 
         # the main spectrum plot
         self.spec_line, self.run_med_line, self.overflow_text, y_scale_spec \
-            = plotting.add_main_spec(self.model.spectrum, self.ax2, self.spec_lim, median_width=self.median_width, 
+            = plotting.add_main_spec(self.model.spectrum, self.ax2, self.init_spec_lim, median_width=self.median_width, 
                                      color=self.plot_colors['spectrum'],
                                      continuum_color=self.plot_colors['continuum'])
 
         # the residual plot
-        self.res_line = plotting.add_residual(self.model.spectrum, self.ax3, self.spec_lim, median_width=self.median_width, 
+        self.res_line = plotting.add_residual(self.model.spectrum, self.ax3, self.init_spec_lim, median_width=self.median_width, 
                                               color=self.spec_line.get_color())
         
         # indices plots
@@ -132,6 +132,7 @@ class visualizer:
         interactive elements.
         """
         self.static_plot(show=False, figsize=figsize)
+        self.spec_lim = self.init_spec_lim.copy()
 
         # adjust the main plots to make room for the sliders
         plt.subplots_adjust(bottom=self.bottom_adjust_val, top=self.top_adjust_val)
@@ -158,12 +159,12 @@ class visualizer:
         
         self.ax_spec_min = plt.axes([current_right_column_pos[0], 
                                      current_right_column_pos[1], textbox_width, self.height])
-        self.spec_min_box = TextBox(self.ax_spec_min, r'$\lambda_{min}$', initial=self.spec_lim[0])
+        self.spec_min_box = TextBox(self.ax_spec_min, r'$\lambda_{min}$', initial=self.init_spec_lim[0])
         self.spec_min_box.on_submit(self.submit_min)
 
         self.ax_spec_max = plt.axes([current_right_column_pos[0]+textbox_width+self.textbox_gap, 
                                      current_right_column_pos[1], textbox_width, self.height])
-        self.spec_max_box = TextBox(self.ax_spec_max, r'$\lambda_{max}$', initial=self.spec_lim[1])
+        self.spec_max_box = TextBox(self.ax_spec_max, r'$\lambda_{max}$', initial=self.init_spec_lim[1])
         self.spec_max_box.on_submit(self.submit_max)
 
         # register the update function with each slider
@@ -430,7 +431,7 @@ class visualizer:
         self.spec_lim[0] = eval(text)
         zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        self.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
+        plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
         self.ax3.set_xlim(self.spec_lim)
         pipes.plotting.auto_x_ticks(self.ax3)
         self.spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
@@ -447,7 +448,7 @@ class visualizer:
         self.spec_lim[1] = eval(text)
         zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        self.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
+        plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
         self.ax3.set_xlim(self.spec_lim)
         pipes.plotting.auto_x_ticks(self.ax3)
         self.spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
