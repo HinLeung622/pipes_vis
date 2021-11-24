@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 import copy
+#from time import perfcounter
 
 import bagpipes as pipes
 from . import override_config
@@ -65,7 +66,7 @@ class visualizer:
             index_ncols = -(-len(self.index_list)//5)
             gs0 = self.fig.add_gridspec(1, 3+index_ncols)
             gs1 = gs0[:3].subgridspec(13, 1, hspace=0., wspace=0.)
-            gs2 = gs0[3:].subgridspec(5, index_ncols, hspace=0.5, wspace=0.1)
+            gs2 = gs0[3:].subgridspec(5, index_ncols, hspace=0.5, wspace=0.2)
             # indices plots
             for i in range(len(self.index_list)):
                 self.index_list[i]['ax'] = plt.subplot(gs2[i%5,i//5])
@@ -96,12 +97,12 @@ class visualizer:
 
         # the main spectrum plot
         self.spec_line, self.run_med_line, self.overflow_text, y_scale_spec \
-            = plotting.add_main_spec(self.model, self.ax2, self.spec_lim, median_width=self.median_width, 
+            = plotting.add_main_spec(self.model.spectrum, self.ax2, self.spec_lim, median_width=self.median_width, 
                                      color=self.plot_colors['spectrum'],
                                      continuum_color=self.plot_colors['continuum'])
 
         # the residual plot
-        self.res_line = plotting.add_residual(self.model, self.ax3, self.spec_lim, median_width=self.median_width, 
+        self.res_line = plotting.add_residual(self.model.spectrum, self.ax3, self.spec_lim, median_width=self.median_width, 
                                               color=self.spec_line.get_color())
         
         # indices plots
@@ -200,7 +201,7 @@ class visualizer:
         # 2. compile info such as initial values and custom slider limits into a list of the same order
         required_components = []
         init_vals = []
-        custom_extremes = []
+        custom_extremes = {}
         slider_names = []
         repeat_info = {}    # element 0 holds the name of the repeat, 1 holds the number of repeats
         sfh_types = dir(pipes.models.star_formation_history)
@@ -224,10 +225,8 @@ class visualizer:
                             required_components.append(key[:-1]+':'+sfh_key)
                             slider_names.append(key+':'+sfh_key)
                             init_vals.append(sfh_dict[sfh_key])
-                        try:
-                            custom_extremes.append(sfh_dict[sfh_key+'_lims'])
-                        except KeyError:
-                            custom_extremes.append(None)
+                        if sfh_key+'_lims' in sfh_dict.keys():
+                            custom_extremes[key+':'+sfh_key] = sfh_dict[sfh_key+'_lims']
                             
             elif key in ['dust', 'nebular']:
                 for sub_key in self.init_comp[key].keys():
@@ -236,19 +235,15 @@ class visualizer:
                             required_components.append(key+':'+sub_key)
                             slider_names.append(key+':'+sub_key)
                             init_vals.append(self.init_comp[key][sub_key])
-                            try:
-                                custom_extremes.append(self.init_comp[key][sub_key+'_lims'])
-                            except KeyError:
-                                custom_extremes.append(None)
+                            if sub_key+'_lims' in self.init_comp[key].keys():
+                                custom_extremes[key+':'+sub_key] = self.init_comp[key][sub_key+'_lims']
                                 
             elif key != 'spec_lim' and key[-5:] != '_lims' and key in slider_params.slider_lib.keys():
                 required_components.append(key)
                 slider_names.append(key)
                 init_vals.append(self.init_comp[key])
-                try:
-                    custom_extremes.append(self.init_comp[key+'_lims'])
-                except KeyError:
-                    custom_extremes.append(None)
+                if key+'_lims' in self.init_comp.keys():
+                    custom_extremes[key] = self.init_comp[key+'_lims']
             
         # loop through the reqiured components a second time to 1. seperate left and right sliders
         # 2. take according standard slider properties from slider_params.slider_lib
@@ -272,8 +267,8 @@ class visualizer:
                         (rep_order-1)*10/repeat_info[sfh_type] + \
                         (c_dict['priority']-slider_params.sfh_priorities[sfh_type])/repeat_info[sfh_type]
             
-            if custom_extremes[i] is not None:
-                c_dict['lims'] = custom_extremes[i]
+            if slider_names[i] in custom_extremes.keys():
+                c_dict['lims'] = custom_extremes[slider_names[i]]
             if c_dict['side'] == 'left':
                 left_priorities.append(c_dict['priority'])
                 left_components.append(c_dict)

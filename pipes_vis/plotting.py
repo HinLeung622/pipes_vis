@@ -79,17 +79,17 @@ def add_bp_spectrum(spectrum, ax, zorder=4, z_non_zero=True, color="sandybrown",
 
     return y_scale, spec_line
 
-def add_main_spec(model, ax, spec_lim, median_width=150, color="sandybrown", 
+def add_main_spec(spectrum, ax, spec_lim, median_width=150, color="sandybrown", 
                   continuum_color='black', continuum_label='continuum'):
     """
     Adds the elements in the main spectrum plot to the given axis,
     returns plot elements that can be later updated by sliders and y scale of spectrum
     """
-    run_med = utils.running_median(model.spectrum[:,0], model.spectrum[:,1], width=median_width)
-    zoom_in_spec = model.spectrum[np.where((model.spectrum[:,0] >= spec_lim[0]) & 
-                                           (model.spectrum[:,0] <= spec_lim[1]))]
+    run_med = utils.running_median(spectrum[:,0], spectrum[:,1], width=median_width)
+    zoom_in_spec = spectrum[np.where((spectrum[:,0] >= spec_lim[0]) & 
+                                     (spectrum[:,0] <= spec_lim[1]))]
     y_scale_spec,spec_line = add_bp_spectrum(zoom_in_spec, ax, color=color)
-    run_med_line, = ax.plot(model.spectrum[:, 0], run_med*10**-y_scale_spec, color='k', alpha=0.3, zorder=5,
+    run_med_line, = ax.plot(spectrum[:, 0], run_med*10**-y_scale_spec, color='k', alpha=0.3, zorder=5,
                             label='continuum')
     ax.legend(loc='upper right')
     overflow_text = ax.text(0.5, 0.5, 'Fluxes too low, y-axis scale inaccurate!!', color='red',
@@ -119,14 +119,14 @@ def update_spec(spectrum, ax, spec_line, sub=False, overflow_text=None, change_x
         if overflow_text is not None:
             overflow_text.set_alpha(1.0)
 
-def add_residual(model, ax, spec_lim, median_width=150, color="sandybrown"):
+def add_residual(spectrum, ax, spec_lim, median_width=150, color="sandybrown"):
     """
     Adds the elements in the residual plot to the given axis,
     returns plot elements that can be later updated by sliders and y scale of spectrum
     """
-    run_med = utils.running_median(model.spectrum[:,0], model.spectrum[:,1], width=median_width)
-    residual = model.spectrum[:,1] / run_med
-    res_line, = ax.plot(model.spectrum[:, 0], residual, color=color, lw=2, zorder=1)
+    run_med = utils.running_median(spectrum[:,0], spectrum[:,1], width=median_width)
+    residual = spectrum[:,1] / run_med
+    res_line, = ax.plot(spectrum[:, 0], residual, color=color, lw=2, zorder=1)
     # value guidelines and labels
     ax.axhline(1, color="black", ls="--", lw=1, zorder=0)
     ax.axhline(1.5, color="black", ls=":", lw=1, zorder=0)
@@ -138,8 +138,8 @@ def add_residual(model, ax, spec_lim, median_width=150, color="sandybrown"):
     pipes.plotting.auto_axis_label(ax, -1, z_non_zero=True)
     ax.set_ylabel('flux/\ncontinuum')
     # rescale the y axis to be determined only by the residuals in frame
-    in_range_res = residual[np.where((model.spectrum[:,0] >= spec_lim[0]) & 
-                                     (model.spectrum[:,0] <= spec_lim[1]))]
+    in_range_res = residual[np.where((spectrum[:,0] >= spec_lim[0]) & 
+                                     (spectrum[:,0] <= spec_lim[1]))]
     res_span = max(in_range_res) - min(in_range_res)
     ax.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
     

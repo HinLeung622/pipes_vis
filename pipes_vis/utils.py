@@ -106,11 +106,11 @@ def create_sfh(params):
     used to plot SFH and 3. a dictionary of custom SFH dictionaries that is to 
     be poured into bagpipes' model components
     """
-    print('')
+    #print('')
     pipes_sfh_funcs = dir(pipes.models.star_formation_history)
-    for key in params.keys():
-        if key in pipes_sfh_funcs or key[:-1] in pipes_sfh_funcs:
-            print(params[key])
+    #for key in params.keys():
+    #    if key in pipes_sfh_funcs or key[:-1] in pipes_sfh_funcs:
+    #        print(params[key])
     
     z = params["redshift"]
     total_M_before_z = 0
@@ -175,7 +175,7 @@ def create_sfh(params):
                 metallicity_comp = getattr(metallicity_translate, 'delta')(params[key], z)
             custom.update(metallicity_comp)
             
-            print(custom)
+            #print(custom)
             
             # set the sfh array to non zero throughout to prevent bagpipes going crazy
             if M_before_z == 0:
@@ -255,8 +255,8 @@ def running_median(x,y, width=150):
     
 def make_pipes_components(params, sfh_dict):
     """ Create a Bagpipes component dictionary (custom SFHs) from visualizer inputs """
-    print(params)
-    print(sfh_dict)
+    #print(params)
+    #print(sfh_dict)
     model_components = sfh_dict.copy()
     model_components["redshift"] = params["redshift"]
     if "dust" in params.keys():
