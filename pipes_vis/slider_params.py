@@ -22,49 +22,55 @@ massformed_dict = {
     }
 
 # library for all possible metallicity parameters, added to each possible SFH component
-metallicity_unit = r'$Z_*/Z_\odot$'
 metallicity_lib = {
     # constant metallicity
     'metallicity':{
-        'label':metallicity_unit,
+        'label':r'$Z_*/Z_\odot$',
         'lims':[0.0,2.0],
         'side':'left',
         'priority':2.0
         },
     # psb_two_step and two_step
     'metallicity_old':{
-        'label':metallicity_unit,
+        'label':r'$Z_{old}/Z_\odot$',
         'lims':[0.0,2.0],
         'side':'left',
         'priority':2.1
         },
-    # psb_two_step, two_step and psb_linear_step
+    # psb_two_step, and psb_linear_step
     'metallicity_burst':{
-        'label':metallicity_unit,
+        'label':r'$Z_{burst}/Z_\odot$',
         'lims':[0.0,2.0],
         'side':'left',
         'priority':2.2
+        },
+    # two_step
+    'metallicity_new':{
+        'label':r'$Z_{new}/Z_\odot$',
+        'lims':[0.0,2.0],
+        'side':'left',
+        'priority':2.3
         },
     # psb_linear_step
     'metallicity_slope':{
         'label':r'$Z_*/Z_\odot \; Gyr^{-1}$',
         'lims':[-1.0,1.0],
         'side':'left',
-        'priority':2.3
+        'priority':2.4
         },
     # psb_linear_step
     'metallicity_zero':{
-        'label':metallicity_unit,
+        'label':r'$Z_0/Z_\odot$',
         'lims':[0.0,5.0],
         'side':'left',
-        'priority':2.4
+        'priority':2.5
         },
     # two_step
     'metallicity_tstep':{
         'label':r'$t_{Zstep}$ (Gyr)',
         'lims':[0.0,utils.cosmo.age(0).value],
         'side':'left',
-        'priority':2.5
+        'priority':2.6
         }
     }
 

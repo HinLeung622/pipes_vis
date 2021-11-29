@@ -1,7 +1,6 @@
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from scipy.ndimage import median_filter
-import copy
 
 import bagpipes as pipes
 from . import override_config
@@ -74,13 +73,15 @@ class metallicity_translate:
         return pipes_comp
     
     def psb_two_step(vis_comp, z):
-        pipes_comp = {key:vis_comp[key] for key in ["metallicity_old", "metallicity_burst"]}
+        pipes_comp = {}
         pipes_comp["metallicity_type"] = "two_step"
+        pipes_comp["metallicity_old"] = vis_comp["metallicity_old"]
+        pipes_comp["metallicity_new"] = vis_comp["metallicity_burst"]
         pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['tburst']
         return pipes_comp
     
     def two_step(vis_comp, z):
-        pipes_comp = {key:vis_comp[key] for key in ["metallicity_type", "metallicity_old", "metallicity_burst"]}
+        pipes_comp = {key:vis_comp[key] for key in ["metallicity_type", "metallicity_old", "metallicity_new"]}
         pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['metallicity_tstep']
         return pipes_comp
     
@@ -88,15 +89,56 @@ class metallicity_translate:
         return {key:vis_comp[key] for key in ["metallicity_type", "metallicity_slope", 
                                               "metallicity_zero", "metallicity_burst"]}
 
-def make_sfh_comp(sfh_type, key, params):
-    sfh_comp = getattr(sfh_translate, sfh_type)(params[key])
-    sfh_comp['massformed'] = params[key]['massformed']
-    if "metallicity_type" in params[key].keys():
-        metallicity_comp = getattr(metallicity_translate, params[key]["metallicity_type"])(params[key], 0)
+class get_ceh_array:
+    """
+    Evaluates the metallicity values at a list of ages (in lb time) given the 
+    metallicity model choice and model parameters.
+    """
+    def delta(ages, sfh_dict):
+        return np.ones(len(ages))*sfh_dict['metallicity']
+    
+    def two_step(ages, sfh_dict):
+        pre_step_ind = np.where(ages < sfh_dict['metallicity_tstep'])
+        post_step_ind = np.isin(np.arange(len(ages)), pre_step_ind, invert=True)
+        ceh = np.zeros(len(ages))
+        ceh[pre_step_ind] = sfh_dict['metallicity_old']
+        ceh[post_step_ind] = sfh_dict['metallicity_new']
+        return ceh
+    
+    def psb_two_step(ages, sfh_dict):
+        pre_step_ind = np.where(ages < sfh_dict['tburst'])
+        post_step_ind = np.isin(np.arange(len(ages)), pre_step_ind, invert=True)
+        ceh = np.zeros(len(ages))
+        ceh[pre_step_ind] = sfh_dict['metallicity_old']
+        ceh[post_step_ind] = sfh_dict['metallicity_burst']
+        return ceh
+
+def make_sfh_comp(sfh_type, z0_comp):
+    """Creates a sfh dictionary at 0 redshift, but in lookback time"""
+    sfh_comp = getattr(sfh_translate, sfh_type)(z0_comp)
+    sfh_comp['massformed'] = z0_comp['massformed']
+    if "metallicity_type" in z0_comp.keys():
+        metallicity_comp = getattr(metallicity_translate, z0_comp["metallicity_type"])(z0_comp, 0)
     else:
-        metallicity_comp = getattr(metallicity_translate, 'delta')(params[key], 0)
+        metallicity_comp = getattr(metallicity_translate, 'delta')(z0_comp, 0)
     sfh_comp.update(metallicity_comp)
     return sfh_comp
+
+def parametric_to_custom_sfh(sfh_type, sfh_dict, ages):
+    """
+    Using the Bagpipes models.sfh object, to extract an array of age (lb time)
+    vs sfr. Then interp this SFH onto a given age list.
+    """
+    model_components = {}
+    model_components[sfh_type] = make_sfh_comp(sfh_type, sfh_dict)
+    model_components['redshift'] = 0
+
+    # pass the temp input dictionary to the SFH module in bagpipes to build an SFH
+    pipes_sfh = pipes.models.star_formation_history(model_components)
+    to_interp_ages = cosmo.age(0).value*10**9 - pipes_sfh.ages[::-1]
+    sfh = pipes_sfh.sfh[::-1]
+    
+    return np.interp(ages, to_interp_ages/10**9, sfh)
 
 def create_sfh(params):
     """
@@ -128,9 +170,9 @@ def create_sfh(params):
                 raise NameError("Too many initiated SFH components, exceeds bagpipes' limits(9).")
             model_components = {}
             if key in pipes_sfh_funcs:
-                model_components[key] = make_sfh_comp(key, key, params)
+                model_components[key] = make_sfh_comp(key, params[key])
             elif key[:-1] in pipes_sfh_funcs:
-                model_components[key] = make_sfh_comp(key[:-1], key, params)
+                model_components[key] = make_sfh_comp(key[:-1], params[key])
             model_components['redshift'] = 0
     
             # pass the temp input dictionary to the SFH module in bagpipes to build an SFH
@@ -282,5 +324,41 @@ def shift_index(ind_dict, redshift):
         else:
             out_dict[key] = ind_dict[key]
     return out_dict
+
+def get_ceh(ages, params, model):
+    sfh_comp_keys = []
+    pipes_sfh_funcs = dir(pipes.models.star_formation_history)
+    for key in params.keys():
+        if key in pipes_sfh_funcs or key[:-1] in pipes_sfh_funcs:
+            sfh_comp_keys.append(key)
+            
+    if len(sfh_comp_keys) == 1:
+        if 'metallicity_type' in params[sfh_comp_keys[0]].keys():
+            zmet_evo = getattr(get_ceh_array, params[sfh_comp_keys[0]]['metallicity_type'])(
+                ages, params[sfh_comp_keys[0]])
+        else:
+            zmet_evo = getattr(get_ceh_array, 'delta')(ages, params[sfh_comp_keys[0]])
+            
+        return zmet_evo
+            
+    else:
+        zmet_evo = np.zeros([len(sfh_comp_keys), len(ages)])
+        sfh_array = np.zeros(np.shape(zmet_evo))
+        for i,key in enumerate(sfh_comp_keys):
+            if 'metallicity_type' in params[key].keys():
+                zmet_evo[i,:] = getattr(get_ceh_array, params[key]['metallicity_type'])(ages, params[key])
+            else:
+                zmet_evo[i,:] = getattr(get_ceh_array, 'delta')(ages, params[key])
+                
+            if key in pipes_sfh_funcs:
+                sfh_array[i,:] = parametric_to_custom_sfh(key, params[key], ages)
+            elif key[:-1] in pipes_sfh_funcs:
+                sfh_array[i,:] = parametric_to_custom_sfh(key[:-1], params[key[:-1]], ages)
+        
+        sfh_sum = np.sum(sfh_array, axis=0)
+        zmet_evo_1d = np.sum(zmet_evo*sfh_array, axis=0) / sfh_sum
+        # mask all 0 SFR bins into np.nan to prevent plotting anomalies
+        zmet_evo_1d[sfh_sum<=0] = np.nan
+        return zmet_evo_1d
 
 cosmo = FlatLambdaCDM(H0=70., Om0=0.3)

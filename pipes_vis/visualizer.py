@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, TextBox
+from matplotlib.widgets import Slider, Button, TextBox, CheckButtons
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 import copy
 #from time import perfcounter
@@ -51,7 +51,8 @@ class visualizer:
                                                        # for the sliders
         self.slider_colors = {'sfh':['lightsteelblue','bisque','honeydew','mistyrose','thistle'],
                               'misc':'lightgoldenrodyellow'}      # colour of the sliders
-        self.reset_button_arg = [0.8, 0.025, 0.1, 0.04]# location and scaling of the reset button
+        self.reset_button_arg = [0.8, 0.025, 0.1, 0.04]           # location and scaling of the reset button
+        self.moreplots_check_arg = [0.7, 0.025, 0.04,0.04]        # location and scaling of checkbox for more plots
         
     def static_plot(self, show=True, figsize=(13,9)):
         """ 
@@ -76,10 +77,10 @@ class visualizer:
         self.ax3 = plt.subplot(gs1[11:])        #residual plot
                 
 
-        init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
+        init_input_logM, self.total_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
 
         self.sfh_line, self.z_line, self.z_text, self.input_logM_text, self.bad_sfh_text \
-            = plotting.add_sfh_plot(self.init_comp, init_sfh, init_input_logM, self.ax1,
+            = plotting.add_sfh_plot(self.init_comp, self.total_sfh, init_input_logM, self.ax1,
                                     sfh_color=self.plot_colors['sfh'], z_line_color=self.plot_colors['z'])
 
         self.model = pipes.model_galaxy(utils.make_pipes_components(self.init_comp, init_custom_sfh),
@@ -120,6 +121,8 @@ class visualizer:
                     y_scale_spec, color_continuum=self.plot_colors['index_continuum'],
                     color_feature=self.plot_colors['index_feature'], alpha=0.2
                     )
+                
+        plt.tight_layout()
         
         if show:
             plt.show()
@@ -131,53 +134,59 @@ class visualizer:
         Creates the figure, lines, texts and annotations that will be manipulated, and also the 
         interactive elements.
         """
-        self.static_plot(show=False, figsize=figsize)
-        self.spec_lim = self.init_spec_lim.copy()
-
-        # adjust the main plots to make room for the sliders
-        plt.subplots_adjust(bottom=self.bottom_adjust_val, top=self.top_adjust_val)
-        default_top_margin = 1-plt.rcParams["figure.subplot.top"]
-        default_bottom_margin = plt.rcParams["figure.subplot.bottom"]
-        new_top_margin = 1-self.top_adjust_val
-        new_bottom_margin = self.bottom_adjust_val
-        ratio = (1-new_top_margin-new_bottom_margin) / (1-default_top_margin-default_bottom_margin)
-        
-        l, b, w, h = self.sub_ax.get_position().bounds
-        new_b = 1-new_top_margin-(1-b-default_top_margin)*ratio
-        new_h = h*ratio
-        self.sub_ax.set_position([l, new_b, w, new_h])
-
-        # make sliders
-        self.sliders_ax, self.sliders, current_right_column_pos = self.make_sliders()
-        
-        # make input textboxes for wavelength limits
-        if current_right_column_pos[0] == self.right_x:
-            right_edge = self.reset_button_arg[0] - 0.03
+        # check if the GUI has already been initialized. If it is, just show the figure from the previous state
+        if self.GUI_initialized:
+            self.fig.show()
         else:
-            right_edge = self.right_x+self.width
-        textbox_width = (right_edge-current_right_column_pos[0]-self.textbox_gap)/2
-        
-        self.ax_spec_min = plt.axes([current_right_column_pos[0], 
-                                     current_right_column_pos[1], textbox_width, self.height])
-        self.spec_min_box = TextBox(self.ax_spec_min, r'$\lambda_{min}$', initial=self.init_spec_lim[0])
-        self.spec_min_box.on_submit(self.submit_min)
-
-        self.ax_spec_max = plt.axes([current_right_column_pos[0]+textbox_width+self.textbox_gap, 
-                                     current_right_column_pos[1], textbox_width, self.height])
-        self.spec_max_box = TextBox(self.ax_spec_max, r'$\lambda_{max}$', initial=self.init_spec_lim[1])
-        self.spec_max_box.on_submit(self.submit_max)
-
-        # register the update function with each slider
-        for key in self.sliders.keys():
-            self.sliders[key].on_changed(self.update)
-
-        # Create a `matplotlib.widgets.Button` to reset all sliders to initial values.
-        self.resetax = plt.axes(self.reset_button_arg)
-        self.reset_button = Button(self.resetax, 'Reset', color=self.slider_colors['misc'], hovercolor='0.975')
-        
-        self.reset_button.on_clicked(self.reset)
-
-        plt.show()
+            # initializing GUI plot
+            self.static_plot(show=False, figsize=figsize)
+            self.spec_lim = self.init_spec_lim.copy()
+    
+            # adjust the main plots to make room for the sliders
+            plt.subplots_adjust(bottom=self.bottom_adjust_val, top=self.top_adjust_val) 
+    
+            # make sliders
+            self.sliders_ax, self.sliders, current_right_column_pos = self.make_sliders()
+    
+            # make input textboxes for wavelength limits
+            if current_right_column_pos[0] == self.right_x:
+                right_edge = self.reset_button_arg[0] - 0.03
+            else:
+                right_edge = self.right_x+self.width
+            textbox_width = (right_edge-current_right_column_pos[0]-self.textbox_gap)/2
+    
+            self.ax_spec_min = plt.axes([current_right_column_pos[0], 
+                                         current_right_column_pos[1], textbox_width, self.height])
+            self.spec_min_box = TextBox(self.ax_spec_min, r'$\lambda_{min}$', initial=self.init_spec_lim[0])
+            self.spec_min_box.on_submit(self.submit_min)
+    
+            self.ax_spec_max = plt.axes([current_right_column_pos[0]+textbox_width+self.textbox_gap, 
+                                         current_right_column_pos[1], textbox_width, self.height])
+            self.spec_max_box = TextBox(self.ax_spec_max, r'$\lambda_{max}$', initial=self.init_spec_lim[1])
+            self.spec_max_box.on_submit(self.submit_max)
+    
+            # register the update function with each slider
+            for key in self.sliders.keys():
+                self.sliders[key].on_changed(self.update)
+    
+            # Create a `matplotlib.widgets.Button` to reset all sliders to initial values.
+            self.resetax = plt.axes(self.reset_button_arg)
+            self.reset_button = Button(self.resetax, 'Reset', color=self.slider_colors['misc'], hovercolor='0.975')
+    
+            self.reset_button.on_clicked(self.reset)
+    
+            # Create a `matplotlib.widgets.CheckButton` to toggle show or not additional plots
+            self.moreplotsax = plt.axes(self.moreplots_check_arg)
+            self.moreplots_check = CheckButtons(self.moreplotsax, ['additional plots'])
+    
+            self.moreplots_check.on_clicked(self.toggle_additional_plots)
+    
+            # additional plots toggle bool
+            self.reset_additional_plots()
+    
+            plt.show()
+    
+            self.GUI_initialized = True
         
     def make_one_slider(self, x_pos, y_pos, width, height, label, lims, init_val, bg_color):
         """ makes a single slider """
@@ -374,10 +383,10 @@ class visualizer:
         #update sfh plot
         age_at_z = utils.cosmo.age(self.new_comp["redshift"]).value
         self.z_line.set_xdata([age_at_z,age_at_z])
-        input_logM, vary_sfh, custom_sfh = utils.create_sfh(self.new_comp)
-        self.sfh_line.set_ydata(vary_sfh[1])
-        if max(vary_sfh[1])>0:
-            self.ax1.set_ylim(top=1.05*max(vary_sfh[1]))
+        input_logM, self.total_sfh, custom_sfh = utils.create_sfh(self.new_comp)
+        self.sfh_line.set_ydata(self.total_sfh[1])
+        if max(self.total_sfh[1])>0:
+            self.ax1.set_ylim(top=1.05*max(self.total_sfh[1]))
             self.bad_sfh_text.set_alpha(0.0)
         else:
             self.ax1.set_ylim(top=1)
@@ -419,7 +428,11 @@ class visualizer:
                     plotting.update_index(self.index_list[i], self.model.spectrum, self.indices[i], 
                                           self.new_comp["redshift"], y_scale_spec)
                         
-
+        if self.additional_plots:
+            # mass weighted metallicity plot
+            self.zmet_evo = utils.get_ceh(self.total_sfh[0], self.new_comp, self.model)
+            plotting.update_zmet_plot(self.ax_zmet, self.zmet_line, self.zmet_evo)
+        
         self.fig.canvas.draw_idle()
         
 
@@ -461,8 +474,45 @@ class visualizer:
         """ resets everything to the default states """
         for key in self.sliders.keys():
             self.sliders[key].reset()
-        self.spec_min_box.set_val(self.init_comp['spec_lim'][0])
-        self.spec_max_box.set_val(self.init_comp['spec_lim'][1])
+        self.spec_min_box.set_val(self.init_spec_lim[0])
+        self.spec_max_box.set_val(self.init_spec_lim[1])
+        
+    def toggle_additional_plots(self, label):
+        """
+        Toggling the display of additional plots by the check box. Currently
+        plots include:
+            Mass weighted metallicity plot, competible with time-varying models,
+            plotted with SFH plot panel
+        """
+        if self.additional_plots:
+            self.additional_plots = False     #toggle
+            self.ax_zmet.set_axis_off()
+            self.zmet_line.set_visible(False)
+        else:
+            self.additional_plots = True     #toggle
+            if hasattr(self, 'ax_zmet'):
+                self.update_zmet_plot()
+                self.ax_zmet.set_axis_on()
+                self.zmet_line.set_visible(True)
+            else:
+                if hasattr(self, 'new_comp'):
+                    self.zmet_evo = utils.get_ceh(self.total_sfh[0], self.new_comp, self.model)
+                else:
+                    self.zmet_evo = utils.get_ceh(self.total_sfh[0], self.init_comp, self.model)
+                self.ax_zmet = self.ax1.twinx()
+                line = self.ax_zmet.plot(self.total_sfh[0], self.zmet_evo, color='sandybrown')
+                self.zmet_line = line[0]
+                self.ax_zmet.set_ylabel(r'$Z_*/Z_\odot$', color='sandybrown')
+                self.ax_zmet.tick_params(axis='y', labelcolor='sandybrown')
+                self.ax_zmet.tick_params(direction="in")
+            
+        self.fig.canvas.draw_idle()
+    
+    def reset_additional_plots(self):
+        """ Resets the additional plots related variables """
+        self.additional_plots = False
+        if hasattr(self, 'ax_zmet'):
+            delattr(self, 'ax_zmet')
         
     def ribbon_plot(self, parameter, range=None, log_space=False, nlines=10, lw=1, alpha=1.0, 
                      show=True, figsize=(13,10), cmap='viridis', reverse=False):
@@ -509,8 +559,8 @@ class visualizer:
             init_input_logM, init_sfh, init_custom_sfh = utils.create_sfh(new_init_comp)
     
             model.update(utils.make_pipes_components(new_init_comp, init_custom_sfh))
-            zoom_in_spec = model.spectrum[np.where((model.spectrum[:,0] >= self.spec_lim[0]) & 
-                                                   (model.spectrum[:,0] <= self.spec_lim[1]))]
+            zoom_in_spec = model.spectrum[np.where((model.spectrum[:,0] >= self.init_spec_lim[0]) & 
+                                                   (model.spectrum[:,0] <= self.init_spec_lim[1]))]
             spectrums.append(zoom_in_spec.copy())
     
             #figure out the optimal y scale to use, first calculate all ymaxes
@@ -519,8 +569,8 @@ class visualizer:
             #calculate residuals (full range)
             run_med = utils.running_median(model.spectrum[:,0], model.spectrum[:,1], width=self.median_width)
             residual = model.spectrum[:,1] / run_med
-            zoom_in_res = residual[np.where((model.spectrum[:,0] >= self.spec_lim[0]) & 
-                                            (model.spectrum[:,0] <= self.spec_lim[1]))]
+            zoom_in_res = residual[np.where((model.spectrum[:,0] >= self.init_spec_lim[0]) & 
+                                            (model.spectrum[:,0] <= self.init_spec_lim[1]))]
             residuals.append(zoom_in_res.copy())
         
         # extract colours from the chosen colourmap
@@ -549,21 +599,21 @@ class visualizer:
     
         # Sort out spectrum limits and axis labels
         ax1.set_ylim(0., ymax*10**-y_scale)
-        ax1.set_xlim(self.spec_lim)
+        ax1.set_xlim(self.init_spec_lim)
         ax1.set_xticks([])
         pipes.plotting.auto_axis_label(ax1, y_scale, z_non_zero=True)
     
         # add residual value guidelines and labels
         ax2.axhline(1, color="black", ls="--", lw=1, zorder=0)
         ax2.axhline(1.5, color="black", ls=":", lw=1, zorder=0)
-        ax2.annotate('1.5x', [0.98*(self.spec_lim[1]-self.spec_lim[0])+self.spec_lim[0], 1.5], 
+        ax2.annotate('1.5x', [0.98*(self.init_spec_lim[1]-self.init_spec_lim[0])+self.init_spec_lim[0], 1.5], 
                      ha='center', va='center')
         ax2.axhline(0.5, color="black", ls=":", lw=1, zorder=0)
-        ax2.annotate('0.5x', [0.98*(self.spec_lim[1]-self.spec_lim[0])+self.spec_lim[0], 0.5], 
+        ax2.annotate('0.5x', [0.98*(self.init_spec_lim[1]-self.init_spec_lim[0])+self.init_spec_lim[0], 0.5], 
                      ha='center', va='center')
     
         # Sort out residual limits and axis labels
-        ax2.set_xlim(self.spec_lim)
+        ax2.set_xlim(self.init_spec_lim)
         pipes.plotting.auto_x_ticks(ax2)
         pipes.plotting.auto_axis_label(ax2, -1, z_non_zero=True)
         ax2.set_ylabel('flux/\ncontinuum')
