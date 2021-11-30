@@ -491,7 +491,8 @@ class visualizer:
         else:
             self.additional_plots = True     #toggle
             if hasattr(self, 'ax_zmet'):
-                self.update_zmet_plot()
+                self.zmet_evo = utils.get_ceh(self.total_sfh[0], self.new_comp, self.model)
+                plotting.update_zmet_plot(self.ax_zmet, self.zmet_line, self.zmet_evo)
                 self.ax_zmet.set_axis_on()
                 self.zmet_line.set_visible(True)
             else:
