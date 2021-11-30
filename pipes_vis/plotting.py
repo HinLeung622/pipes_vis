@@ -216,7 +216,5 @@ def update_index(ind_dict, spectrum, ind_val, redshift, y_scale):
         
 def update_zmet_plot(ax, zmet_line, zmet_evo):
     zmet_line.set_ydata(zmet_evo)
-    min_y = np.nanmin(zmet_evo)
     max_y = np.nanmax(zmet_evo)
-    y_span = max_y - min_y
-    ax.set_ylim([min_y-0.1*y_span, max_y+0.1*y_span])
+    ax.set_ylim(top = 1.1*max_y)

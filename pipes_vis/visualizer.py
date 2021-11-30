@@ -502,6 +502,7 @@ class visualizer:
                 self.ax_zmet = self.ax1.twinx()
                 line = self.ax_zmet.plot(self.total_sfh[0], self.zmet_evo, color='sandybrown')
                 self.zmet_line = line[0]
+                self.ax_zmet.set_ylim([0,1.1*np.nanmax(self.zmet_evo)])
                 self.ax_zmet.set_ylabel(r'$Z_*/Z_\odot$', color='sandybrown')
                 self.ax_zmet.tick_params(axis='y', labelcolor='sandybrown')
                 self.ax_zmet.tick_params(direction="in")

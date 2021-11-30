@@ -86,12 +86,25 @@ class metallicity_translate:
         return pipes_comp
     
     def psb_linear_step(vis_comp, z):
-        return {key:vis_comp[key] for key in ["metallicity_type", "metallicity_slope", 
-                                              "metallicity_zero", "metallicity_burst"]}
+        pipes_comp = {}
+        pipes_comp["metallicity_type"] = "linear_step"
+        pipes_comp["metallicity_zero"] = vis_comp["metallicity_zero"] + \
+            vis_comp["metallicity_slope"]*(cosmo.age(0).value-cosmo.age(z).value)
+        pipes_comp["metallicity_slope"] = vis_comp["metallicity_slope"]
+        pipes_comp["metallicity_new"] = vis_comp["metallicity_burst"]
+        pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['tburst']
+        return pipes_comp
+    
+    def linear_step(vis_comp, z):
+        pipes_comp = {key:vis_comp[key] for key in ["metallicity_type", "metallicity_slope", "metallicity_new"]}
+        pipes_comp["metallicity_zero"] = vis_comp["metallicity_zero"] + \
+            vis_comp["metallicity_slope"]*(cosmo.age(0).value-cosmo.age(z).value)
+        pipes_comp["metallicity_step_age"] = cosmo.age(z).value - vis_comp['metallicity_tstep']
+        return pipes_comp
 
 class get_ceh_array:
     """
-    Evaluates the metallicity values at a list of ages (in lb time) given the 
+    Evaluates the metallicity values at a list of ages (in normal age) given the 
     metallicity model choice and model parameters.
     """
     def delta(ages, sfh_dict):
@@ -110,6 +123,24 @@ class get_ceh_array:
         post_step_ind = np.isin(np.arange(len(ages)), pre_step_ind, invert=True)
         ceh = np.zeros(len(ages))
         ceh[pre_step_ind] = sfh_dict['metallicity_old']
+        ceh[post_step_ind] = sfh_dict['metallicity_burst']
+        return ceh
+    
+    def linear_step(ages, sfh_dict):
+        pre_step_ind = np.where(ages < sfh_dict['metallicity_tstep'])
+        post_step_ind = np.isin(np.arange(len(ages)), pre_step_ind, invert=True)
+        ceh = np.zeros(len(ages))
+        ceh[pre_step_ind] = sfh_dict['metallicity_zero'] + \
+            sfh_dict['metallicity_slope']*(cosmo.age(0).value-ages[pre_step_ind])
+        ceh[post_step_ind] = sfh_dict['metallicity_new']
+        return ceh
+    
+    def psb_linear_step(ages, sfh_dict):
+        pre_step_ind = np.where(ages < sfh_dict['tburst'])
+        post_step_ind = np.isin(np.arange(len(ages)), pre_step_ind, invert=True)
+        ceh = np.zeros(len(ages))
+        ceh[pre_step_ind] = sfh_dict['metallicity_zero'] + \
+            sfh_dict['metallicity_slope']*(cosmo.age(0).value-ages[pre_step_ind])
         ceh[post_step_ind] = sfh_dict['metallicity_burst']
         return ceh
 
@@ -313,6 +344,7 @@ def make_pipes_components(params, sfh_dict):
     return model_components
 
 def shift_index(ind_dict, redshift):
+    """ Shifts indices' wavelengths from rest frame to observed frame """
     out_dict = {}
     for key in ind_dict:
         if key == 'feature':
@@ -326,6 +358,10 @@ def shift_index(ind_dict, redshift):
     return out_dict
 
 def get_ceh(ages, params, model):
+    """
+    Get the mass-weighted metallicity array at a specified list of ages (lb time)
+    for one or more SFH component
+    """
     sfh_comp_keys = []
     pipes_sfh_funcs = dir(pipes.models.star_formation_history)
     for key in params.keys():
@@ -339,6 +375,7 @@ def get_ceh(ages, params, model):
         else:
             zmet_evo = getattr(get_ceh_array, 'delta')(ages, params[sfh_comp_keys[0]])
             
+        zmet_evo[zmet_evo<0] = 0
         return zmet_evo
             
     else:
@@ -354,6 +391,7 @@ def get_ceh(ages, params, model):
                 sfh_array[i,:] = parametric_to_custom_sfh(key, params[key], ages)
             elif key[:-1] in pipes_sfh_funcs:
                 sfh_array[i,:] = parametric_to_custom_sfh(key[:-1], params[key[:-1]], ages)
+            zmet_evo[i,:][zmet_evo[i,:]<0] = 0
         
         sfh_sum = np.sum(sfh_array, axis=0)
         zmet_evo_1d = np.sum(zmet_evo*sfh_array, axis=0) / sfh_sum
