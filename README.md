@@ -5,7 +5,7 @@ A ["Mini-paper"](https://iopscience.iop.org/article/10.3847/2515-5172/ac1680) ab
 
 To install, type `pip install pipes_vis`. This package depends on Bagpipes, which has non-python packages like multinest as dependencies. If you only wish to use pipes_vis, you need not go through the process to get all non-python dependencies of bagpipes as they are only used for SED fitting rather than modelling. Just ignore complains from Bagpipes when importing. However, if you wish to use Bagpipes for SED fitting, follow the tutorial in Bagpipes' docs to get those non-python packages.<br>
 
-You can find examples and documumentations of the tool in [this jupyter notebook](https://github.com/HinLeung622/pipes_vis/blob/main/pipes_vis_example.ipynb)
+You can find examples and documentations of the tool in [this jupyter notebook](https://github.com/HinLeung622/pipes_vis/blob/main/pipes_vis_example.ipynb)
 
 Dependencies: bagpipes, numpy, matplotlib, astropy, scipy (visualizer still works even if you do not install multinest and pymultinest as instructed by bagpipes' installation) <br>
 
