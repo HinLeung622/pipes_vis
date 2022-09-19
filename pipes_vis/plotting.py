@@ -7,6 +7,16 @@ override_config.override_config(pipes)
 from . import utils
 
 
+def get_y_scale(spectrum, ymax=None):
+    """ Sorts out y-axis scaling for plots with spectrum """
+    if not ymax:
+        ymax = 1.05*np.max(spectrum[:, 1])
+
+    y_scale = int(np.log10(ymax))-1
+    
+    return y_scale,ymax
+    
+
 def add_bp_sfh(sfh, ax, color="black"):
     """ Adds a SFH black line in the given axis, in Bagpipes style """
     zvals=[0, 0.5, 1, 2, 4, 10]
@@ -54,11 +64,7 @@ def add_bp_spectrum(spectrum, ax, zorder=4, z_non_zero=True, color="sandybrown",
     Add a spectrum to the passed axes. Adds errors if they are
     included in the spectrum object as a third column. 
     """
-    # Sort out axis limits
-    if not ymax:
-        ymax = 1.05*np.max(spectrum[:, 1])
-
-    y_scale = int(np.log10(ymax))-1
+    y_scale, ymax = get_y_scale(spectrum, ymax)
 
     ax.set_ylim(0., ymax*10**-y_scale)
     ax.set_xlim(spectrum[0, 0], spectrum[-1, 0])
@@ -145,12 +151,15 @@ def add_residual(spectrum, ax, spec_lim, median_width=150, color="sandybrown"):
     
     return res_line
 
-def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale, 
+def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale=None, 
                        color_continuum='lightgray', color_feature='sandybrown', alpha=0.2):
     """ 
     Adds the elements in line index plots to a given axis, 
     returns plot elements that can later be updated by sliders and y scale of spectrum
     """
+    if not y_scale:
+        y_scale, ymax = get_y_scale(spectrum)
+    
     index_ax = ind_dict['ax']
     ind_dict_ = utils.shift_index(ind_dict, redshift)
     if ind_dict_['type'] in ['EW', 'break']:
@@ -159,6 +168,10 @@ def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale,
         spec_range = np.where((spectrum[:,0] > index_range[0]) & (spectrum[:,0] < index_range[1]))
         ind_line = index_ax.plot(spectrum[spec_range][:,0], spectrum[spec_range][:,1]*10**-y_scale, color='k')
         ind_dict['line'] = ind_line[0]
+        
+        ind_y_scale_text = index_ax.text(0.0,1.01, r'$\times 10^{'+str(y_scale)+r'}$', 
+                                         ha='left', va='bottom', transform=index_ax.transAxes)
+        ind_dict['y_scale_text'] = ind_y_scale_text
 
         ylims = index_ax.get_ylim()
         con_polys = []
@@ -172,7 +185,7 @@ def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale,
         index_ax.set_ylim(ylims)
         index_ax.set_xlim(index_range)
         index_ax.tick_params(direction="in")
-        ind_text = index_ax.text(0.95, 1.0, ind_dict_['name']+'='+str(np.round(ind_val,2)), 
+        ind_text = index_ax.text(1.0, 1.01, ind_dict_['name']+'='+str(np.round(ind_val,2)), 
                                  ha='right', va='bottom', transform=index_ax.transAxes)
     else:
         index_ax.set_xticks([])
@@ -213,6 +226,14 @@ def update_index(ind_dict, spectrum, ind_val, redshift, y_scale):
                                               [ind_dict_['feature'][0],20],
                                               [ind_dict_['feature'][1],20],
                                               [ind_dict_['feature'][1],0]]])
+        
+    if 'y_scale_text' in ind_dict_.keys():
+        ind_dict_['y_scale_text'].set_text(r'$\times 10^{'+str(y_scale)+r'}$')
+        
+    if len(index_ax.get_ylabel()) > 0:
+        index_ax.yaxis.set_label("$\\mathrm{f_{\\lambda}}\\ \\mathrm{/\\ 10^{"
+                            + str(y_scale)
+                            + "}\\ erg\\ s^{-1}\\ cm^{-2}\\ \\AA^{-1}}$")
         
 def update_zmet_plot(ax, zmet_line, zmet_evo):
     zmet_line.set_ydata(zmet_evo)

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox, CheckButtons
 from mpl_toolkits.axes_grid.inset_locator import InsetPosition
 import copy
+import os
 #from time import perfcounter
 
 import bagpipes as pipes
@@ -118,7 +119,7 @@ class visualizer:
                 
                 self.index_list[i] = plotting.add_index_spectrum(
                     self.index_list[i], self.model.spectrum, self.indices[i], self.init_comp["redshift"], 
-                    y_scale_spec, color_continuum=self.plot_colors['index_continuum'],
+                    y_scale=y_scale_spec, color_continuum=self.plot_colors['index_continuum'],
                     color_feature=self.plot_colors['index_feature'], alpha=0.2
                     )
                 
@@ -128,8 +129,63 @@ class visualizer:
             plt.show()
             
         return self.fig, [self.ax1, self.ax2, self.ax3, self.sub_ax]
+    
+    def index_static_plot(self, show=True, figsize=(13,9)):
+        """ 
+        Indices only
+        Creates the figure, lines, texts and annotations. Returns figure and axes (in a list)
+        for further manipulation by the user if needed.
+        """
+        self.fig = plt.figure(figsize=figsize)
+
+        gs1 = matplotlib.gridspec.GridSpec(13, 1, hspace=0., wspace=0.)
+
+        self.ax1 = plt.subplot(gs1[0:5])        #SFH plot
+        # indices plots
+        index_ncols = -(-len(self.index_list)//2)
+        gs2 = gs1[6:].subgridspec(2, index_ncols, hspace=0.5, wspace=0.2)
+        for i in range(len(self.index_list)):
+            self.index_list[i]['ax'] = plt.subplot(gs2[i%2,i//2])
+
+
+        init_input_logM, self.total_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
+
+        self.sfh_line, self.z_line, self.z_text, self.input_logM_text, self.bad_sfh_text \
+            = plotting.add_sfh_plot(self.init_comp, self.total_sfh, init_input_logM, self.ax1,
+                                    sfh_color=self.plot_colors['sfh'], z_line_color=self.plot_colors['z'])
+
+        self.model = pipes.model_galaxy(utils.make_pipes_components(self.init_comp, init_custom_sfh),
+                                        spec_wavs=self.wavelengths)
+
+        # indices plots
+        self.index_names = [ind["name"] for ind in self.index_list]
+
+        # calculate and plot indices
+        y_scale_spec,ymax = plotting.get_y_scale(self.model.spectrum)
+        self.indices = np.zeros(len(self.index_list))
+        for i in range(self.indices.shape[0]):
+            self.indices[i] = pipes.input.spectral_indices.measure_index(
+                self.index_list[i], self.model.spectrum, self.init_comp["redshift"])
+
+            self.index_list[i] = plotting.add_index_spectrum(
+                self.index_list[i], self.model.spectrum, self.indices[i], self.init_comp["redshift"], 
+                y_scale=y_scale_spec,
+                color_continuum=self.plot_colors['index_continuum'],
+                color_feature=self.plot_colors['index_feature'], alpha=0.2
+                )
+
+        # add labels to index plots
+        pipes.plotting.auto_axis_label(self.index_list[0]['ax'], y_scale_spec)
+        self.index_list[0]['ax'].yaxis.set_label_coords(-0.05, -0.2)
+
+        plt.tight_layout()
+
+        if show:
+            plt.show()
+
+        return self.fig
         
-    def GUI(self, figsize=(13,12)):
+    def GUI(self, figsize=(13,12), index_plot=False):
         """ 
         Creates the figure, lines, texts and annotations that will be manipulated, and also the 
         interactive elements.
@@ -139,7 +195,10 @@ class visualizer:
             self.fig.show()
         else:
             # initializing GUI plot
-            self.static_plot(show=False, figsize=figsize)
+            if index_plot:
+                self.index_static_plot(show=False, figsize=figsize)
+            else:
+                self.static_plot(show=False, figsize=figsize)
             self.spec_lim = self.init_spec_lim.copy()
     
             # adjust the main plots to make room for the sliders
@@ -404,29 +463,33 @@ class visualizer:
         residual = self.model.spectrum[:,1] / run_med
 
         #update subplot full spectrum
-        plotting.update_spec(self.model.spectrum, self.sub_ax, self.sub_spec_line, sub=True)
+        if hasattr(self, 'sub_ax'):
+            plotting.update_spec(self.model.spectrum, self.sub_ax, self.sub_spec_line, sub=True)
 
         #update main spectrum plot
-        zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
-                                                    (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        y_scale_spec = plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, overflow_text=self.overflow_text)
-        if y_scale_spec is not None:
-            self.run_med_line.set_ydata(run_med*10**-y_scale_spec)
+        if hasattr(self, 'ax2'):
+            zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
+                                                        (self.model.spectrum[:,0] <= self.spec_lim[1]))]
+            y_scale_spec = plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, overflow_text=self.overflow_text)
+            if y_scale_spec is not None:
+                self.run_med_line.set_ydata(run_med*10**-y_scale_spec)
 
-            #update residual plot
-            self.res_line.set_ydata(residual)
-            in_range_res = residual[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
-                                             (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-            res_span = max(in_range_res) - min(in_range_res)
-            self.ax3.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
+                #update residual plot
+                self.res_line.set_ydata(residual)
+                in_range_res = residual[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
+                                                 (self.model.spectrum[:,0] <= self.spec_lim[1]))]
+                res_span = max(in_range_res) - min(in_range_res)
+                self.ax3.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
             
-            #update indices
-            if self.index_list is not None:
-                for i in range(len(self.index_list)):
-                    self.indices[i] = pipes.input.spectral_indices.measure_index(
-                        self.index_list[i], self.model.spectrum, self.new_comp["redshift"])
-                    plotting.update_index(self.index_list[i], self.model.spectrum, self.indices[i], 
-                                          self.new_comp["redshift"], y_scale_spec)
+        #update indices
+        if self.index_list is not None:
+            if hasattr(self, 'ax2') == False:
+                y_scale_spec,ymax = plotting.get_y_scale(self.model.spectrum)
+            for i in range(len(self.index_list)):
+                self.indices[i] = pipes.input.spectral_indices.measure_index(
+                    self.index_list[i], self.model.spectrum, self.new_comp["redshift"])
+                plotting.update_index(self.index_list[i], self.model.spectrum, self.indices[i], 
+                                      self.new_comp["redshift"], y_scale_spec)
                         
         if self.additional_plots:
             # mass weighted metallicity plot
@@ -435,6 +498,20 @@ class visualizer:
         
         self.fig.canvas.draw_idle()
         
+    def get_model(self):
+        """ Returns the bagpipes model galaxy at its current state """
+        return self.model
+
+    def get_spectrum(self, full=False):
+        """ Returns the spectrum arrray at its current state.
+        If full==True, returns the whole wavelength range.
+        Column 0 = wavelength in Anstroms
+        Column 1 = flux in erg s^-1 cm^-2 AA^-1 """
+        if full:
+            return self.model.spectrum
+        else:
+            return self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
+                                                (self.model.spectrum[:,0] <= self.spec_lim[1]))]
 
     def submit_min(self, text):
         """
@@ -515,6 +592,28 @@ class visualizer:
         self.additional_plots = False
         if hasattr(self, 'ax_zmet'):
             delattr(self, 'ax_zmet')
+            
+    def quick_lick(self, index_plot=True):
+        """
+        Quick access to a GUI version that shows a list of the lick indices
+        """
+        # set up index_list
+        vis_path = os.path.dirname(os.path.realpath(__file__))
+        lick_index = np.loadtxt(vis_path+'/lick_index.txt',usecols=[1,2,3,4,5,6],comments='#')
+        names = np.loadtxt(vis_path+'/lick_index.txt',usecols=[0],dtype=str,comments='#')
+        units = np.loadtxt(vis_path+'/lick_index.txt',usecols=[-1],dtype=str,comments='#')
+
+        self.index_list = []
+        for i,name in enumerate(names):
+            ind = {}
+            ind["name"] = name
+            ind["type"] = "EW"
+            ind["continuum"] = [[lick_index[i,2], lick_index[i,3]], [lick_index[i,4], lick_index[i,5]]]
+            ind["feature"] = [lick_index[i,0], lick_index[i,1]]
+            ind["unit"] = units[i]
+            self.index_list.append(ind)
+
+        self.GUI(figsize=(15,12), index_plot=index_plot)
         
     def ribbon_plot(self, parameter, range=None, log_space=False, nlines=10, lw=1, alpha=1.0, 
                      show=True, figsize=(13,10), cmap='viridis', reverse=False):
