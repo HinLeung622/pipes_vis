@@ -25,6 +25,8 @@ class visualizer:
         self.init_comp = init_components
         self.init_spec_lim = self.init_comp['spec_lim'].copy()
         self.index_list = index_list
+        self.GUI_initialized = False
+        self.additional_plots = False
         # full spectrum wavelengths
         wavelengths_fine = np.linspace(1000,10000, 10000)
         wavelengths_coarse = np.linspace(10000,50000,2000)[1:]
@@ -50,8 +52,8 @@ class visualizer:
         self.bottom_adjust_val = 0.36                  # scaling value used on all plots to make space
         self.top_adjust_val = 0.95                     # scaling value used on all plots to make space
                                                        # for the sliders
-        self.slider_colors = {'sfh':['lightsteelblue','bisque','honeydew','mistyrose','thistle'],
-                              'misc':'lightgoldenrodyellow'}      # colour of the sliders
+        self.slider_colors = {'sfh':['cornflowerblue','orange','lime','tomato','darkorchid'],
+                              'misc':'gold', 'reset_button':'lightgoldenrodyellow'}       # colour of the sliders
         self.reset_button_arg = [0.8, 0.025, 0.1, 0.04]           # location and scaling of the reset button
         self.moreplots_check_arg = [0.7, 0.025, 0.04,0.04]        # location and scaling of checkbox for more plots
         
@@ -185,7 +187,7 @@ class visualizer:
 
         return self.fig
         
-    def GUI(self, figsize=(13,12), index_plot=False):
+    def GUI(self, figsize=(13,12), index_only=False):
         """ 
         Creates the figure, lines, texts and annotations that will be manipulated, and also the 
         interactive elements.
@@ -195,7 +197,7 @@ class visualizer:
             self.fig.show()
         else:
             # initializing GUI plot
-            if index_plot:
+            if index_only:
                 self.index_static_plot(show=False, figsize=figsize)
             else:
                 self.static_plot(show=False, figsize=figsize)
@@ -230,7 +232,7 @@ class visualizer:
     
             # Create a `matplotlib.widgets.Button` to reset all sliders to initial values.
             self.resetax = plt.axes(self.reset_button_arg)
-            self.reset_button = Button(self.resetax, 'Reset', color=self.slider_colors['misc'], hovercolor='0.975')
+            self.reset_button = Button(self.resetax, 'Reset', color=self.slider_colors['reset_button'], hovercolor='0.975')
     
             self.reset_button.on_clicked(self.reset)
     
@@ -247,16 +249,34 @@ class visualizer:
     
             self.GUI_initialized = True
         
-    def make_one_slider(self, x_pos, y_pos, width, height, label, lims, init_val, bg_color):
+    def make_one_slider(self, x_pos, y_pos, width, height, label, lims, init_val, color):
         """ makes a single slider """
-        ax_slider = plt.axes([x_pos, y_pos, width, height], facecolor=bg_color)
-        the_slider = Slider(
-            ax=ax_slider,
-            label=label,
-            valmin=lims[0],
-            valmax=lims[1],
-            valinit=init_val,
-        )
+        bg_color = list(matplotlib.colors.to_rgba(color))
+        bg_color[3] = 0.25
+        ax_slider = plt.axes([x_pos, y_pos, width, height], facecolor=bg_color, alpha=0.5)
+
+        if int(matplotlib.__version__.split('.')[1]) >= 5:
+            # new slider format
+            the_slider = Slider(
+                ax=ax_slider,
+                label=label,
+                valmin=lims[0],
+                valmax=lims[1],
+                valinit=init_val,
+                color=color,
+                track_color=bg_color
+            )
+        else:
+            # old slider format
+            the_slider = Slider(
+                ax=ax_slider,
+                label=label,
+                valmin=lims[0],
+                valmax=lims[1],
+                valinit=init_val,
+                color=color
+            )
+
         return ax_slider, the_slider
 
     def make_sliders(self):

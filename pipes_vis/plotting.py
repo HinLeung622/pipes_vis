@@ -159,6 +159,20 @@ def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale=None,
     """
     if not y_scale:
         y_scale, ymax = get_y_scale(spectrum)
+        
+    # sort out units
+    if ind_dict['type'] == 'break':
+        units = ''
+    else:
+        if 'units' in ind_dict:
+            if ind_dict['units'] == 'AA':
+                units = '$\\AA$'
+            elif ind_dict['units'] == 'mag':
+                units = 'mag'
+            else:
+                units = ''
+        else:
+            units = '$\\AA$'
     
     index_ax = ind_dict['ax']
     ind_dict_ = utils.shift_index(ind_dict, redshift)
@@ -185,11 +199,11 @@ def add_index_spectrum(ind_dict, spectrum, ind_val, redshift, y_scale=None,
         index_ax.set_ylim(ylims)
         index_ax.set_xlim(index_range)
         index_ax.tick_params(direction="in")
-        ind_text = index_ax.text(1.0, 1.01, ind_dict_['name']+'='+str(np.round(ind_val,2)), 
+        ind_text = index_ax.text(1.0, 1.01, ind_dict_['name']+'='+str(np.round(ind_val,2))+units, 
                                  ha='right', va='bottom', transform=index_ax.transAxes)
     else:
         index_ax.set_xticks([])
-        ind_text = index_ax.text(0.5, 0.5, ind_dict_['name']+'='+str(np.round(ind_val,2)), 
+        ind_text = index_ax.text(0.5, 0.5, ind_dict_['name']+'='+str(np.round(ind_val,2))+units, 
                                  ha='center', va='center', transform=index_ax.transAxes)
     
     ind_dict['text'] = ind_text
