@@ -1,3 +1,5 @@
+# from https://wwwmpa.mpa-garching.mpg.de/SDSS/DR7/SDSS_indx.html, originally from 
+# Worthey et al., 1994, ApJS, 94, 687 and Worthey and Ottaviani, 1997, ApJS, 111, 377 
 CN1	4142.125   4177.125	4080.125   4117.625	4244.125   4284.125	mag
 # CN2	4142.125   4177.125	4083.875   4096.375	4244.125   4284.125	mag
 Ca4227	4222.250   4234.750	4211.000   4219.750	4241.000   4251.000	AA
