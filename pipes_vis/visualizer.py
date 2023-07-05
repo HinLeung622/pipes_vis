@@ -2,7 +2,11 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox, CheckButtons
-from mpl_toolkits.axes_grid.inset_locator import InsetPosition
+# handle different versions of mpl_toolkits
+try:
+    from mpl_toolkits.axes_grid.inset_locator import InsetPosition
+except ModuleNotFoundError:
+    from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 import copy
 import os
 #from time import perfcounter
