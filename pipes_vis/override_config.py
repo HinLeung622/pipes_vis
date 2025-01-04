@@ -26,7 +26,7 @@ def override_config(pipes):
     
         else:
             pipes.config.wav_check = np.min(pipes.config.igm_file[2].data == pipes.config.igm_wavelengths)
-            pipes.config.z_check = np.min(pipes.config.igm_file[3].data == pipes.config.igm_redshifts)
+            pipes.config.z_check = pipes.config.igm_file[3].data.shape[0] == pipes.config.igm_redshifts.shape[0]
     
             if not pipes.config.wav_check or not pipes.config.z_check:
                 pipes.config.igm_inoue2014.make_table(pipes.config.igm_redshifts, pipes.config.igm_wavelengths)
