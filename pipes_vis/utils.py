@@ -390,7 +390,7 @@ def get_ceh(ages, params, model):
             if key in pipes_sfh_funcs:
                 sfh_array[i,:] = parametric_to_custom_sfh(key, params[key], ages)
             elif key[:-1] in pipes_sfh_funcs:
-                sfh_array[i,:] = parametric_to_custom_sfh(key[:-1], params[key[:-1]], ages)
+                sfh_array[i,:] = parametric_to_custom_sfh(key[:-1], params[key], ages)
             zmet_evo[i,:][zmet_evo[i,:]<0] = 0
         
         sfh_sum = np.sum(sfh_array, axis=0)

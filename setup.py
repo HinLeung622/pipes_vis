@@ -7,7 +7,7 @@ setuptools.setup(
     name="pipes-vis",
     version="0.4.4",
     author="Ho-Hin Leung",
-    author_email="hhl1@st-andrews.ac.uk",
+    author_email="hleung2@roe.ac.uk",
     description="Small interactive GUI/visualizer tool for SPS spectra",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -25,5 +25,5 @@ setuptools.setup(
     python_requires=">=3.6",
     
     install_requires=["bagpipes>=1.0.0", "numpy>=1.14.2",
-                      "astropy", "matplotlib>=2.2.2", "scipy"],
+                      "astropy", "matplotlib>=2.2.2", "scipy", "pyqt"],
 )

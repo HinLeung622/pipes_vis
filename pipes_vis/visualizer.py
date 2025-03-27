@@ -129,7 +129,7 @@ class visualizer:
                     color_feature=self.plot_colors['index_feature'], alpha=0.2
                     )
                 
-        plt.tight_layout()
+        #plt.tight_layout()
         
         if show:
             plt.show()
@@ -184,7 +184,7 @@ class visualizer:
         pipes.plotting.auto_axis_label(self.index_list[0]['ax'], y_scale_spec)
         self.index_list[0]['ax'].yaxis.set_label_coords(-0.05, -0.2)
 
-        plt.tight_layout()
+        #plt.tight_layout()
 
         if show:
             plt.show()
@@ -324,7 +324,7 @@ class visualizer:
             elif key in ['dust', 'nebular']:
                 for sub_key in self.init_comp[key].keys():
                     if sub_key[-5:] != '_lims':
-                        if sub_key != 'type':
+                        if sub_key != 'type' and key+':'+sub_key in slider_params.slider_lib.keys():
                             required_components.append(key+':'+sub_key)
                             slider_names.append(key+':'+sub_key)
                             init_vals.append(self.init_comp[key][sub_key])
@@ -396,7 +396,7 @@ class visualizer:
             y_pos = self.max_y - left_row_no[i]*self.step_y
             sliders_ax[slider_name], sliders[slider_name] \
                 = self.make_one_slider(x_pos, y_pos, left_width, self.height, c_dict['label'], c_dict['lims'],
-                                       c_dict['init_val'], bg_color)
+                                    c_dict['init_val'], bg_color)
         
         # right columns, includes auto ordering in cases with more sliders than self.max_n_rows,
         # but always the same colour
@@ -411,7 +411,7 @@ class visualizer:
             y_pos = self.max_y - right_row_no[i]*self.step_y
             sliders_ax[slider_name], sliders[slider_name] \
                 = self.make_one_slider(x_pos, y_pos, right_width, self.height, c_dict['label'], c_dict['lims'],
-                                       c_dict['init_val'], bg_color)
+                                    c_dict['init_val'], bg_color)
         
         # calculate the coords of the next empty slot for putting the text boxes
         current_right_column_pos = [right_col_no[-1]*(right_width+self.slider_gap) + self.right_x,
@@ -427,11 +427,14 @@ class visualizer:
             if key in sfh_types or key[:-1] in sfh_types:
                 sfh_dict = {}
                 for sfh_key in self.init_comp[key].keys():
-                    if sfh_key[-5:] != '_lims':
-                        if key+':'+sfh_key in self.sliders.keys():
-                            sfh_dict[sfh_key] = self.sliders[key+':'+sfh_key].val
-                        else:
-                            sfh_dict[sfh_key] = self.init_comp[key][sfh_key]
+                    if sfh_key[-5:] == '_lims':
+                        # first throw away the limits
+                        continue
+                    elif key+':'+sfh_key in self.sliders.keys():
+                        sfh_dict[sfh_key] = self.sliders[key+':'+sfh_key].val
+                    else:
+                        # a catch all for anything that is not modifiable through sliders
+                        sfh_dict[sfh_key] = self.init_comp[key][sfh_key]
                 sfh_dict_list.append(sfh_dict)
         
         other_modules = {}
@@ -439,24 +442,36 @@ class visualizer:
             if module in self.init_comp.keys():
                 module_dict = {}
                 for key in self.init_comp[module].keys():
-                    if key == 'type':
+                    if key[-5:] == '_lims':
+                        # first throw away the limits
+                        continue
+                    elif key == 'type':
                         module_dict["type"] = self.init_comp[module]['type']
-                    elif key[-5:] != '_lims':
+                    elif module+':'+key in self.sliders.keys():
                         module_dict[key] = self.sliders[module+':'+key].val
+                    else:
+                        # a catch all for anything that is not modifiable through sliders
+                        module_dict[key] = self.init_comp[module][key]
                 other_modules[module] = module_dict
 
         self.new_comp = {}
         sfh_index = 0
         for key in self.init_comp.keys():
-            if key in sfh_types or key[:-1] in sfh_types:
+            if key == 'spec_lim' and key[-5:] == '_lims':
+                # first throw away the limits
+                continue
+            elif key in sfh_types or key[:-1] in sfh_types:
                 self.new_comp[key] = sfh_dict_list[sfh_index]
                 sfh_index += 1
             elif key == 'dust':
                 self.new_comp["dust"] = other_modules['dust']
             elif key == 'nebular':
                 self.new_comp["nebular"] = other_modules['nebular']
-            elif key != 'spec_lim' and key[-5:] != '_lims':
+            elif key in self.sliders.keys():
                 self.new_comp[key] = self.sliders[key].val
+            else:
+                # a catch all for anything that is not modifiable through sliders
+                self.new_comp[key] = self.init_comp[key]
 
     def update(self, val):
         """ The function to be called anytime a slider's value changes """
