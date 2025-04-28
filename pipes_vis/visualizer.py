@@ -25,19 +25,35 @@ class visualizer:
     Object that holds and does the under-the-hood work for showing the galaxy SFH/parameters
     -> spectrum GUI visualizer.
     """
-    def __init__(self, init_components, index_list=None):
+    def __init__(self, init_components, wavelengths=None,
+                 load_data_func=None, spec_units='ergscma', phot_units='mujy', 
+                 spectrum_exists=True, photometry_exists=True, 
+                 filt_list=None, 
+                 index_list=None):
         self.init_comp = init_components
+        self.input_galaxy_kwarg = {
+            "load_data": load_data_func,
+            "spec_units": spec_units,
+            "phot_units": phot_units,
+            "spectrum_exists": spectrum_exists,
+            "photometry_exists": photometry_exists,
+            "filt_list": filt_list
+        }
         self.init_spec_lim = self.init_comp['spec_lim'].copy()
         self.index_list = index_list
         self.GUI_initialized = False
         self.additional_plots = False
         # full spectrum wavelengths
-        wavelengths_fine = np.linspace(1000,10000, 10000)
-        wavelengths_coarse = np.linspace(10000,50000,2000)[1:]
-        self.wavelengths = np.concatenate([wavelengths_fine, wavelengths_coarse])
+        if wavelengths is None:
+            wavelengths_fine = np.linspace(1000,10000, 10000)
+            wavelengths_coarse = np.linspace(10000,50000,2000)[1:]
+            self.wavelengths = np.concatenate([wavelengths_fine, wavelengths_coarse])
+        else:
+            self.wavelengths = wavelengths
         # colours used for the various plot lines
         self.plot_colors = {'sfh':"black", 'z':"red", 'spectrum':"sandybrown", 
-                            'continuum':"black", 'zoom':"black", 
+                            'continuum':"black", 'zoom':"black", 'photometry':"red",
+                            'input_photometry':'blue', 'input_spec':'dodgerblue',
                             "index_continuum":"lightgray", "index_feature":"sandybrown"}
         # width of spectrum (in AA) considered when calculating running median
         self.median_width = 150
@@ -61,6 +77,13 @@ class visualizer:
         self.reset_button_arg = [0.8, 0.025, 0.1, 0.04]           # location and scaling of the reset button
         self.moreplots_check_arg = [0.7, 0.025, 0.04,0.04]        # location and scaling of checkbox for more plots
         
+        self.plot_input_phot = False
+        self.plot_input_spec = False
+        if load_data_func is not None:
+            self.input_galaxy = pipes.galaxy('_', **self.input_galaxy_kwarg)
+            self.plot_input_phot = photometry_exists
+            self.plot_input_spec = spectrum_exists
+
     def static_plot(self, show=True, figsize=(13,9)):
         """ 
         Creates the figure, lines, texts and annotations. Returns figure and axes (in a list)
@@ -129,6 +152,18 @@ class visualizer:
                     color_feature=self.plot_colors['index_feature'], alpha=0.2
                     )
                 
+        # add input photometry and spectrum
+        if self.plot_input_phot:
+            self.input_phot_scatter, self.input_phot_errbar = plotting.add_input_photometry(
+                self.input_galaxy, self.ax2, y_scale=y_scale_spec, 
+                color=self.plot_colors['input_photometry']
+                )
+            self.sub_input_phot_scatter, self.sub_input_phot_errbar = plotting.add_input_photometry(
+                self.input_galaxy, self.sub_ax, y_scale=sub_y_scale_spec, 
+                color=self.plot_colors['input_photometry']
+                )
+            self.sub_ax.set_ylabel(None)
+
         #plt.tight_layout()
         
         if show:
@@ -519,6 +554,15 @@ class visualizer:
                                                  (self.model.spectrum[:,0] <= self.spec_lim[1]))]
                 res_span = max(in_range_res) - min(in_range_res)
                 self.ax3.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
+
+                # update input galaxy data
+                if self.plot_input_phot:
+                    plotting.update_input_photometry(
+                        self.input_galaxy, self.input_phot_scatter, self.input_phot_errbar, y_scale_spec
+                        )
+                    plotting.update_input_photometry(
+                        self.input_galaxy, self.sub_input_phot_scatter, self.sub_input_phot_errbar, y_scale_spec
+                        )
             
         #update indices
         if self.index_list is not None:

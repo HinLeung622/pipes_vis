@@ -114,7 +114,6 @@ def update_spec(spectrum, ax, spec_line, sub=False, overflow_text=None, change_x
         spec_line.set_ydata(spectrum[:, 1]*10**-spec_y_scale)
         if change_xlims == True:
             spec_line.set_xdata(spectrum[:, 0])
-            ax.set_ylim(0., spec_ymax*10**-spec_y_scale)
             ax.set_xlim(spectrum[0, 0], spectrum[-1, 0])
             pipes.plotting.auto_x_ticks(ax)
         ax.set_ylim(0., spec_ymax*10**-spec_y_scale)
@@ -253,3 +252,41 @@ def update_zmet_plot(ax, zmet_line, zmet_evo):
     zmet_line.set_ydata(zmet_evo)
     max_y = np.nanmax(zmet_evo)
     ax.set_ylim(top = 1.1*max_y)
+
+def add_input_photometry(galaxy, ax, zorder=4, y_scale=None, ptsize=40, lw=1.,
+                         marker="o", color="blue"):
+    """ Adds photometric data to the passed axes without doing any
+    manipulation of the axes or labels. 
+    (Adopted from bagpipes.plotting.add_input_photometry_linear)"""
+
+    photometry = np.copy(galaxy.photometry)
+
+    # Plot the data
+    input_phot_errbar = ax.errorbar(photometry[:, 0], photometry[:, 1]*10**-y_scale,
+        yerr=photometry[:, 2]*10**-y_scale, lw=lw,
+        linestyle=" ", capsize=3, capthick=lw, zorder=zorder-1,
+        color="black")
+
+    input_phot = ax.scatter(photometry[:, 0], photometry[:, 1]*10**-y_scale, color=color,
+        s=ptsize, zorder=zorder, linewidth=lw, facecolor=color,
+        edgecolor="black", marker=marker)
+
+    return input_phot, input_phot_errbar
+
+def update_input_photometry(galaxy, input_phot, input_phot_errbar, y_scale):
+    photometry = np.copy(galaxy.photometry)
+
+    new_offset = np.vstack([photometry[:, 0], photometry[:, 1]*10**-y_scale]).T
+    input_phot.set_offsets(new_offset)
+
+    # structure of errorbar object is line, (bottom_caps, top_caps), vertical_bars
+    new_yerr = photometry[:, 2]*10**-y_scale
+    input_phot_errbar[0].set_ydata(new_offset[:,1])
+    input_phot_errbar[1][0].set_ydata(new_offset[:,1] - new_yerr)
+    input_phot_errbar[1][1].set_ydata(new_offset[:,1] + new_yerr)
+    np.vstack([photometry[:, 0], new_offset[:,1] - new_yerr])
+    new_segments = np.stack(
+        [np.vstack([photometry[:, 0], new_offset[:,1] - new_yerr]).T, 
+         np.vstack([photometry[:, 0], new_offset[:,1] + new_yerr]).T]
+        ).transpose(1,0,2)
+    input_phot_errbar[2][0].set_segments(new_segments)
