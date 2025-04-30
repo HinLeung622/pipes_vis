@@ -109,32 +109,32 @@ class visualizer:
 
         init_input_logM, self.total_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
 
-        self.sfh_line, self.z_line, self.z_text, self.input_logM_text, self.bad_sfh_text \
+        self.pe_sfh_line, self.pe_z_line, self.pe_z_text, self.pe_input_logM_text, self.pe_bad_sfh_text \
             = plotting.add_sfh_plot(self.init_comp, self.total_sfh, init_input_logM, self.ax1,
                                     sfh_color=self.plot_colors['sfh'], z_line_color=self.plot_colors['z'])
 
         self.model = pipes.model_galaxy(utils.make_pipes_components(self.init_comp, init_custom_sfh),
-                                        spec_wavs=self.wavelengths)
+                                        spec_wavs=self.wavelengths, filt_list=self.input_galaxy_kwarg['filt_list'])
 
         # full spectrum in inset
         self.sub_ax = plt.axes([0,0,1,1])
         # Manually set the position and relative size of the inset axes within ax2
         ip = InsetPosition(self.ax2, self.sub_ax_arg)
         self.sub_ax.set_axes_locator(ip)
-        sub_y_scale_spec,self.sub_spec_line = plotting.add_bp_spectrum(self.model.spectrum, self.sub_ax, sub=True,
+        sub_y_scale_spec,self.pe_sub_spec_line = plotting.add_bp_spectrum(self.model.spectrum, self.sub_ax, sub=True,
                                                                        color=self.plot_colors['spectrum'])
-        self.spec_zoom_poly = self.sub_ax.fill_between(self.init_spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
-                                                       alpha=0.1)
+        self.pe_spec_zoom_poly = self.sub_ax.fill_between(self.init_spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
+                                                          alpha=0.1)
 
         # the main spectrum plot
-        self.spec_line, self.run_med_line, self.overflow_text, y_scale_spec \
+        self.pe_spec_line, self.pe_run_med_line, self.pe_overflow_text, y_scale_spec \
             = plotting.add_main_spec(self.model.spectrum, self.ax2, self.init_spec_lim, median_width=self.median_width, 
                                      color=self.plot_colors['spectrum'],
                                      continuum_color=self.plot_colors['continuum'])
 
         # the residual plot
-        self.res_line = plotting.add_residual(self.model.spectrum, self.ax3, self.init_spec_lim, median_width=self.median_width, 
-                                              color=self.spec_line.get_color())
+        self.pe_res_line = plotting.add_residual(self.model.spectrum, self.ax3, self.init_spec_lim, median_width=self.median_width, 
+                                                 color=self.pe_spec_line.get_color())
         
         # indices plots
         if self.index_list is not None:
@@ -152,17 +152,25 @@ class visualizer:
                     color_feature=self.plot_colors['index_feature'], alpha=0.2
                     )
                 
-        # add input photometry and spectrum
         if self.plot_input_phot:
-            self.input_phot_scatter, self.input_phot_errbar = plotting.add_input_photometry(
+            # add input photometry and spectrum
+            self.pe_input_phot_scatter, self.pe_input_phot_errbar = plotting.add_input_photometry(
                 self.input_galaxy, self.ax2, y_scale=y_scale_spec, 
                 color=self.plot_colors['input_photometry']
                 )
-            self.sub_input_phot_scatter, self.sub_input_phot_errbar = plotting.add_input_photometry(
+            self.pe_sub_input_phot_scatter, self.pe_sub_input_phot_errbar = plotting.add_input_photometry(
                 self.input_galaxy, self.sub_ax, y_scale=sub_y_scale_spec, 
-                color=self.plot_colors['input_photometry']
+                color=self.plot_colors['input_photometry'], ptsize=10
                 )
             self.sub_ax.set_ylabel(None)
+
+            # add predicted photometry
+            self.pe_model_phot = plotting.add_model_photometry(
+                self.model.filter_set.eff_wavs, self.model.photometry, self.ax2, y_scale=y_scale_spec, color=self.plot_colors['photometry']
+                )
+            self.pe_sub_model_phot = plotting.add_model_photometry(
+                self.model.filter_set.eff_wavs, self.model.photometry, self.sub_ax, y_scale=sub_y_scale_spec, color=self.plot_colors['photometry'], s=25
+                )
 
         #plt.tight_layout()
         
@@ -191,7 +199,7 @@ class visualizer:
 
         init_input_logM, self.total_sfh, init_custom_sfh = utils.create_sfh(self.init_comp)
 
-        self.sfh_line, self.z_line, self.z_text, self.input_logM_text, self.bad_sfh_text \
+        self.pe_sfh_line, self.pe_z_line, self.pe_z_text, self.pe_input_logM_text, self.pe_bad_sfh_text \
             = plotting.add_sfh_plot(self.init_comp, self.total_sfh, init_input_logM, self.ax1,
                                     sfh_color=self.plot_colors['sfh'], z_line_color=self.plot_colors['z'])
 
@@ -515,19 +523,19 @@ class visualizer:
 
         #update sfh plot
         age_at_z = utils.cosmo.age(self.new_comp["redshift"]).value
-        self.z_line.set_xdata([age_at_z,age_at_z])
+        self.pe_z_line.set_xdata([age_at_z,age_at_z])
         input_logM, self.total_sfh, custom_sfh = utils.create_sfh(self.new_comp)
-        self.sfh_line.set_ydata(self.total_sfh[1])
+        self.pe_sfh_line.set_ydata(self.total_sfh[1])
         if max(self.total_sfh[1])>0:
             self.ax1.set_ylim(top=1.05*max(self.total_sfh[1]))
-            self.bad_sfh_text.set_alpha(0.0)
+            self.pe_bad_sfh_text.set_alpha(0.0)
         else:
             self.ax1.set_ylim(top=1)
-            self.bad_sfh_text.set_alpha(1.0)
-        self.z_text.remove()
-        self.z_text = self.ax1.annotate(str(np.round(self.new_comp["redshift"],3)), 
-                                        [age_at_z, 0.92*self.ax1.get_ylim()[1]], color=self.z_line.get_color())
-        self.input_logM_text.set_text('pre-obs log10M = '+str(np.round(input_logM,2)))
+            self.pe_bad_sfh_text.set_alpha(1.0)
+        self.pe_z_text.remove()
+        self.pe_z_text = self.ax1.annotate(str(np.round(self.new_comp["redshift"],3)), 
+                                        [age_at_z, 0.92*self.ax1.get_ylim()[1]], color=self.pe_z_line.get_color())
+        self.pe_input_logM_text.set_text('pre-obs log10M = '+str(np.round(input_logM,2)))
 
         #update model components
         self.model.update(utils.make_pipes_components(self.new_comp, custom_sfh))
@@ -538,31 +546,41 @@ class visualizer:
 
         #update subplot full spectrum
         if hasattr(self, 'sub_ax'):
-            plotting.update_spec(self.model.spectrum, self.sub_ax, self.sub_spec_line, sub=True)
+            sub_y_scale_spec = plotting.update_spec(self.model.spectrum, self.sub_ax, self.pe_sub_spec_line, sub=True)
+
+            if self.plot_input_phot:
+                # update input galaxy data
+                plotting.update_input_photometry(
+                    self.input_galaxy, self.pe_sub_input_phot_scatter, self.pe_sub_input_phot_errbar, sub_y_scale_spec
+                    )
+                
+                # update model photometry
+                plotting.update_model_photometry(
+                    self.model.filter_set.eff_wavs, self.model.photometry, self.pe_sub_model_phot, sub_y_scale_spec
+                )
 
         #update main spectrum plot
         if hasattr(self, 'ax2'):
             zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                         (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-            y_scale_spec = plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, overflow_text=self.overflow_text)
+            y_scale_spec = plotting.update_spec(zoom_in_spec, self.ax2, self.pe_spec_line, pe_overflow_text=self.pe_overflow_text)
             if y_scale_spec is not None:
-                self.run_med_line.set_ydata(run_med*10**-y_scale_spec)
+                # update running median line
+                self.pe_run_med_line.set_ydata(run_med*10**-y_scale_spec)
 
                 #update residual plot
-                self.res_line.set_ydata(residual)
-                in_range_res = residual[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
-                                                 (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-                res_span = max(in_range_res) - min(in_range_res)
-                self.ax3.set_ylim([min(in_range_res)-0.1*res_span, max(in_range_res)+0.1*res_span])
+                plotting.update_residual(residual, self.pe_res_line, self.ax3, self.model, self.spec_lim)
 
-                # update input galaxy data
                 if self.plot_input_phot:
+                    # update input galaxy data
                     plotting.update_input_photometry(
-                        self.input_galaxy, self.input_phot_scatter, self.input_phot_errbar, y_scale_spec
+                        self.input_galaxy, self.pe_input_phot_scatter, self.pe_input_phot_errbar, y_scale_spec
                         )
-                    plotting.update_input_photometry(
-                        self.input_galaxy, self.sub_input_phot_scatter, self.sub_input_phot_errbar, y_scale_spec
-                        )
+                    
+                    # update model photometry
+                    plotting.update_model_photometry(
+                        self.model.filter_set.eff_wavs, self.model.photometry, self.pe_model_phot, y_scale_spec
+                    )
             
         #update indices
         if self.index_list is not None:
@@ -604,13 +622,13 @@ class visualizer:
         self.spec_lim[0] = eval(text)
         zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
+        plotting.update_spec(zoom_in_spec, self.ax2, self.pe_spec_line, change_xlims=True)
         self.ax3.set_xlim(self.spec_lim)
         pipes.plotting.auto_x_ticks(self.ax3)
-        self.spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
-                                   [self.spec_lim[0],20],
-                                   [self.spec_lim[1],20],
-                                   [self.spec_lim[1],0]]])
+        self.pe_spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
+                                           [self.spec_lim[0],20],
+                                           [self.spec_lim[1],20],
+                                           [self.spec_lim[1],0]]])
         self.fig.canvas.draw_idle()
 
     def submit_max(self, text):
@@ -621,13 +639,13 @@ class visualizer:
         self.spec_lim[1] = eval(text)
         zoom_in_spec = self.model.spectrum[np.where((self.model.spectrum[:,0] >= self.spec_lim[0]) & 
                                                (self.model.spectrum[:,0] <= self.spec_lim[1]))]
-        plotting.update_spec(zoom_in_spec, self.ax2, self.spec_line, change_xlims=True)
+        plotting.update_spec(zoom_in_spec, self.ax2, self.pe_spec_line, change_xlims=True)
         self.ax3.set_xlim(self.spec_lim)
         pipes.plotting.auto_x_ticks(self.ax3)
-        self.spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
-                                   [self.spec_lim[0],20],
-                                   [self.spec_lim[1],20],
-                                   [self.spec_lim[1],0]]])
+        self.pe_spec_zoom_poly.set_verts([[[self.spec_lim[0],0],
+                                           [self.spec_lim[0],20],
+                                           [self.spec_lim[1],20],
+                                           [self.spec_lim[1],0]]])
         self.fig.canvas.draw_idle()
         
     def reset(self, event):

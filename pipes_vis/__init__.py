@@ -2,6 +2,7 @@ from . import utils
 from . import plotting
 from . import slider_params
 from . import override_config
+from . import fix_wavelength_range_bug
 from .visualizer import visualizer
 print(
       'If bagpipes is complaining about a missing installation of multinest and/or pymultinest, '+

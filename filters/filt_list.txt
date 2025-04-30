@@ -1,0 +1,3 @@
+filters/f435w
+filters/f606w
+filters/f814w
