@@ -2,11 +2,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox, CheckButtons
-# handle different versions of mpl_toolkits
-try:
-    from mpl_toolkits.axes_grid.inset_locator import InsetPosition
-except ModuleNotFoundError:
-    from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 import copy
 import os
 #from time import perfcounter
@@ -118,9 +113,8 @@ class visualizer:
 
         # full spectrum in inset
         self.sub_ax = plt.axes([0,0,1,1])
-        # Manually set the position and relative size of the inset axes within ax2
-        ip = InsetPosition(self.ax2, self.sub_ax_arg)
-        self.sub_ax.set_axes_locator(ip)
+        self._adjust_subax_pos()
+
         sub_y_scale_spec,self.pe_sub_spec_line = plotting.add_bp_spectrum(self.model.spectrum, self.sub_ax, sub=True,
                                                                        color=self.plot_colors['spectrum'])
         self.pe_spec_zoom_poly = self.sub_ax.fill_between(self.init_spec_lim, [0]*2, [20]*2, color=self.plot_colors['zoom'], 
@@ -252,6 +246,7 @@ class visualizer:
     
             # adjust the main plots to make room for the sliders
             plt.subplots_adjust(bottom=self.bottom_adjust_val, top=self.top_adjust_val) 
+            self._adjust_subax_pos()
     
             # make sliders
             self.sliders_ax, self.sliders, current_right_column_pos = self.make_sliders()
@@ -602,6 +597,18 @@ class visualizer:
     def get_model(self):
         """ Returns the bagpipes model galaxy at its current state """
         return self.model
+    
+    def _adjust_subax_pos(self):
+        # calculate plot coordinates relative to ax2
+        if hasattr(self, 'sub_ax') and hasattr(self, 'ax2'):
+            l, b, w, h = self.ax2.get_position().bounds
+            sub_ax_arg_transformed = [
+                self.sub_ax_arg[0] * w + l,
+                self.sub_ax_arg[1] * h + b,
+                self.sub_ax_arg[2] * w,
+                self.sub_ax_arg[3] * h,
+            ]
+            self.sub_ax.set_position(sub_ax_arg_transformed)
 
     def get_spectrum(self, full=False):
         """ Returns the spectrum arrray at its current state.
